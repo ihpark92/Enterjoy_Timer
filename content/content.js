@@ -199,7 +199,7 @@
       <div class="enterjoy-timer-content enterjoy-point-timer-content">
         <div class="enterjoy-timer-icon">🎁</div>
         <div class="enterjoy-timer-text">
-          <span class="enterjoy-timer-label">성좌 출현까지</span>
+          <span class="enterjoy-timer-label">성좌님 출현까지</span>
           <span class="enterjoy-timer-countdown" id="enterjoy-point-countdown">00:00</span>
         </div>
       </div>
@@ -711,15 +711,9 @@
 
 
   function checkAttendanceSuccess() {
-    // 기존에 저장된 목표 시간이 있는지 먼저 확인
-    chrome.storage.local.get([ATTENDANCE_TARGET_KEY, ATTENDANCE_KEY], function(result) {
-      const existingTargetTime = result[ATTENDANCE_TARGET_KEY];
+    // 기존에 저장된 시간 확인
+    chrome.storage.local.get([ATTENDANCE_KEY], function(result) {
       const existingLastTime = result[ATTENDANCE_KEY];
-
-      // 이미 목표 시간이 설정되어 있으면 덮어쓰지 않음
-      if (existingTargetTime) {
-        return;
-      }
 
       // 포인트 획득 성공 메시지가 있는지 확인
       const bodyText = document.body.innerText;
@@ -729,12 +723,14 @@
           return;
         }
 
+        // 포인트를 받았으므로 24시간 타이머 초기화
         const now = Date.now();
         const targetTime = now + (ATTENDANCE_TIME * 1000);
         chrome.storage.local.set({
           [ATTENDANCE_KEY]: now,
           [ATTENDANCE_TARGET_KEY]: targetTime
         }, function() {
+          console.log('포인트 수령 완료 - 24시간 타이머 초기화');
           updateAttendanceTimer();
         });
       }
@@ -862,9 +858,10 @@
       return;
     }
 
-    // textarea나 댓글 입력 필드가 있는지 확인
-    const commentInput = form.querySelector('textarea, input[type="text"]');
+    // textarea만 댓글 입력으로 인식 (검색창 제외)
+    const commentInput = form.querySelector('textarea');
     if (!commentInput) {
+      // textarea가 없으면 댓글 폼이 아니므로 타이머 시작 안 함
       return;
     }
 
@@ -888,6 +885,7 @@
       }
 
       // 새로운 댓글 시간 저장
+      console.log('댓글 작성 감지 - 타이머 시작');
       chrome.storage.local.set({ [STORAGE_KEY]: checkTime }, function() {
         startCooldown(COOLDOWN_TIME);
       });
