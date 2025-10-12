@@ -28,6 +28,20 @@
     return;
   }
 
+  // 게시판 페이지인지 확인하는 함수
+  function isBoardPage() {
+    const url = window.location.href;
+    // bo_table 파라미터가 있으면 게시판 페이지로 간주
+    return url.includes('bo_table=');
+  }
+
+  // 게시판 페이지가 아니면 실행하지 않음
+  if (!isBoardPage()) {
+    // alert 인터셉터만 설정 (출석체크 시간 추출용)
+    setupAlertInterceptor();
+    return;
+  }
+
   // alert 인터셉터를 가장 먼저 설정 (다른 스크립트보다 먼저)
   setupAlertInterceptor();
 
