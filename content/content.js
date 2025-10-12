@@ -789,8 +789,7 @@
       'input[type="submit"]',
       '.comment-submit',
       '.submit-button',
-      '[class*="submit"]',
-      '[class*="comment"]'
+      '[class*="submit"]'
     ];
 
     // 주기적으로 댓글 폼 확인
@@ -798,7 +797,8 @@
       possibleSelectors.forEach(selector => {
         const buttons = document.querySelectorAll(selector);
         buttons.forEach(button => {
-          if (!button.dataset.enterjoyListener) {
+          // textarea는 제외
+          if (button.tagName !== 'TEXTAREA' && !button.dataset.enterjoyListener) {
             attachCommentListener(button);
             button.dataset.enterjoyListener = 'true';
           }
@@ -817,12 +817,13 @@
         mutation.addedNodes.forEach(node => {
           if (node.nodeType === 1) { // Element 노드
             possibleSelectors.forEach(selector => {
-              if (node.matches && node.matches(selector)) {
+              if (node.matches && node.matches(selector) && node.tagName !== 'TEXTAREA') {
                 attachCommentListener(node);
               }
               const buttons = node.querySelectorAll?.(selector);
               buttons?.forEach(button => {
-                if (!button.dataset.enterjoyListener) {
+                // textarea는 제외
+                if (button.tagName !== 'TEXTAREA' && !button.dataset.enterjoyListener) {
                   attachCommentListener(button);
                   button.dataset.enterjoyListener = 'true';
                 }
@@ -839,22 +840,20 @@
   }
 
   function attachCommentListener(element) {
-    // 마우스 클릭 이벤트
-    element.addEventListener('click', function() {
-      handleCommentSubmission(element);
-    });
-
-    // 키보드 엔터키 이벤트 (버튼에 포커스가 있을 때만)
-    element.addEventListener('keydown', function(e) {
-      if (e.key === 'Enter') {
+    // 마우스 클릭 이벤트 (실제 버튼 클릭만 감지)
+    element.addEventListener('click', function(e) {
+      // 클릭 대상이 실제 버튼인지 확인 (textarea나 다른 요소가 아닌)
+      if (e.target === element || element.contains(e.target)) {
+        // 클릭 이벤트만 처리
         handleCommentSubmission(element);
       }
     });
 
-    // keypress도 추가 (브라우저 호환성)
-    element.addEventListener('keypress', function(e) {
-      if (e.key === 'Enter') {
-        // keydown에서 이미 처리하므로 중복 실행 방지 로직이 작동
+    // 키보드 엔터키 이벤트 (버튼에 포커스가 있을 때만)
+    element.addEventListener('keydown', function(e) {
+      // 엔터키이고, 현재 포커스가 버튼에 있고, Shift/Ctrl/Alt 키가 눌리지 않은 경우에만
+      if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.altKey && document.activeElement === element) {
+        e.preventDefault(); // 기본 동작 방지
         handleCommentSubmission(element);
       }
     });
