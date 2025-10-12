@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>아이콘 생성기</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      padding: 40px;
+      background: #f5f5f5;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+    }
+    h1 {
+      color: #667eea;
+    }
+    .preview {
+      display: flex;
+      gap: 20px;
+      background: white;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    .icon-container {
+      text-align: center;
+    }
+    canvas {
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+    button {
+      background: #667eea;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    button:hover {
+      background: #5568d3;
+    }
+    .info {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      max-width: 600px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    p {
+      margin: 10px 0;
+      color: #666;
+    }
+  </style>
+</head>
+<body>
+  <h1>EnterJoy 아이콘 생성기</h1>
+
+  <div class="preview">
+    <div class="icon-container">
+      <canvas id="icon16" width="16" height="16"></canvas>
+      <p>16x16</p>
+    </div>
+    <div class="icon-container">
+      <canvas id="icon48" width="48" height="48"></canvas>
+      <p>48x48</p>
+    </div>
+    <div class="icon-container">
+      <canvas id="icon128" width="128" height="128"></canvas>
+      <p>128x128</p>
+    </div>
+  </div>
+
+  <button onclick="downloadAllIcons()">모든 아이콘 다운로드</button>
+
+  <div class="info">
+    <p><strong>사용 방법:</strong></p>
+    <p>1. 위의 "모든 아이콘 다운로드" 버튼을 클릭하세요</p>
+    <p>2. 다운로드된 3개의 PNG 파일을 icons 폴더에 저장하세요</p>
+    <p>3. Edge 확장프로그램을 다시 로드하세요</p>
+  </div>
+
+  <script>
+    function drawIcon(canvas, size) {
+      const ctx = canvas.getContext('2d');
+
+      // 그라데이션 배경
+      const gradient = ctx.createLinearGradient(0, 0, size, size);
+      gradient.addColorStop(0, '#667eea');
+      gradient.addColorStop(1, '#764ba2');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, size, size);
+
+      // 타이머 아이콘 그리기
+      ctx.fillStyle = 'white';
+      ctx.font = `${size * 0.6}px Arial`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('⏱️', size / 2, size / 2);
+    }
+
+    function downloadIcon(canvas, filename) {
+      canvas.toBlob(function(blob) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      });
+    }
+
+    function downloadAllIcons() {
+      const canvas16 = document.getElementById('icon16');
+      const canvas48 = document.getElementById('icon48');
+      const canvas128 = document.getElementById('icon128');
+
+      setTimeout(() => downloadIcon(canvas16, 'icon16.png'), 0);
+      setTimeout(() => downloadIcon(canvas48, 'icon48.png'), 200);
+      setTimeout(() => downloadIcon(canvas128, 'icon128.png'), 400);
+
+      alert('아이콘 다운로드를 시작합니다. 3개의 파일이 다운로드됩니다.');
+    }
+
+    // 페이지 로드 시 아이콘 그리기
+    window.onload = function() {
+      drawIcon(document.getElementById('icon16'), 16);
+      drawIcon(document.getElementById('icon48'), 48);
+      drawIcon(document.getElementById('icon128'), 128);
+    };
+  </script>
+</body>
+</html>
