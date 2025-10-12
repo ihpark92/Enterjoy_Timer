@@ -15,6 +15,7 @@
   // 포인트 수집 타이머 관리
   let pointTimerInterval = null;
   let pointTimerElement = null;
+  let pointInterval = 30; // 기본값: 30분 간격
 
   // 출석체크 타이머 관리
   const ATTENDANCE_KEY = 'enterjoy_last_attendance_time';
@@ -46,8 +47,9 @@
   setupAlertInterceptor();
 
   // 설정 확인 (기본값: true)
-  chrome.storage.sync.get(['enabled'], function(result) {
+  chrome.storage.sync.get(['enabled', 'pointInterval'], function(result) {
     isExtensionEnabled = result.enabled !== false; // undefined일 경우 true로 처리
+    pointInterval = result.pointInterval || 30; // 기본값: 30분
 
     if (!isExtensionEnabled) {
       return;
@@ -363,12 +365,26 @@
     const currentSecond = now.getSeconds();
 
     let targetMinute;
-    if (currentMinute < 30) {
-      // 다음 목표는 30분
-      targetMinute = 30;
+
+    if (pointInterval === 10) {
+      // 10분 간격: 0, 10, 20, 30, 40, 50
+      targetMinute = Math.ceil((currentMinute + 1) / 10) * 10;
+      if (targetMinute > 50) {
+        targetMinute = 60; // 다음 시간의 0분
+      }
+    } else if (pointInterval === 20) {
+      // 20분 간격: 0, 20, 40
+      targetMinute = Math.ceil((currentMinute + 1) / 20) * 20;
+      if (targetMinute > 40) {
+        targetMinute = 60; // 다음 시간의 0분
+      }
     } else {
-      // 다음 목표는 다음 시간의 0분
-      targetMinute = 60;
+      // 30분 간격: 0, 30 (기본값)
+      if (currentMinute < 30) {
+        targetMinute = 30;
+      } else {
+        targetMinute = 60; // 다음 시간의 0분
+      }
     }
 
     const minutesRemaining = targetMinute - currentMinute;
@@ -947,13 +963,37 @@
       isExtensionEnabled = request.enabled;
 
       if (isExtensionEnabled) {
-        // 활성화: 타이머 표시
+        // 활성화: 모든 타이머 표시
         if (!timerElement) {
           createTimerUI();
+        } else {
+          timerElement.style.display = 'flex';
         }
+
+        if (!pointTimerElement) {
+          createPointTimerUI();
+        } else {
+          pointTimerElement.style.display = 'flex';
+        }
+
+        if (!attendanceTimerElement) {
+          createAttendanceTimerUI();
+        } else {
+          attendanceTimerElement.style.display = 'flex';
+        }
+
+        // 타이머 상태 확인 및 시작
         checkCooldownStatus();
+
+        if (!pointTimerInterval) {
+          startPointTimer();
+        }
+
+        if (!attendanceTimerInterval) {
+          startAttendanceTimer();
+        }
       } else {
-        // 비활성화: 타이머 숨김
+        // 비활성화: 모든 타이머 숨김
         if (cooldownInterval) {
           clearInterval(cooldownInterval);
           cooldownInterval = null;
@@ -961,7 +1001,34 @@
         if (timerElement) {
           timerElement.style.display = 'none';
         }
+
+        if (pointTimerInterval) {
+          clearInterval(pointTimerInterval);
+          pointTimerInterval = null;
+        }
+        if (pointTimerElement) {
+          pointTimerElement.style.display = 'none';
+        }
+
+        if (attendanceTimerInterval) {
+          clearInterval(attendanceTimerInterval);
+          attendanceTimerInterval = null;
+        }
+        if (attendanceTimerElement) {
+          attendanceTimerElement.style.display = 'none';
+        }
       }
+
+      sendResponse({ success: true });
+      return true;
+    }
+
+    if (request.action === 'updatePointInterval') {
+      // 포인트 간격 업데이트
+      pointInterval = request.interval;
+
+      // 타이머 즉시 재계산
+      updatePointTimer();
 
       sendResponse({ success: true });
       return true;

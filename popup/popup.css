@@ -288,43 +288,76 @@ button {
   transform: scale(0.98);
 }
 
-/* 정보 섹션 */
-.info-section {
+/* 설정 섹션 */
+.settings-section {
   background: #f8f9fa;
-  border-radius: 8px;
+  border-radius: 10px;
   padding: 15px;
   margin-top: 15px;
+  border: 2px solid #e0e0e0;
 }
 
-.info-section h3 {
+.settings-section h3 {
   font-size: 14px;
   color: #667eea;
-  margin-bottom: 10px;
+  margin-bottom: 15px;
   font-weight: 600;
 }
 
-.info-section ul {
-  list-style: none;
-  padding: 0;
+.interval-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 10px;
 }
 
-.info-section li {
+.interval-option {
+  display: flex;
+  align-items: center;
+  padding: 10px;
+  background: white;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.interval-option:hover {
+  border-color: #667eea;
+  background: #f5f7ff;
+}
+
+.interval-option input[type="radio"] {
+  width: 18px;
+  height: 18px;
+  margin-right: 10px;
+  cursor: pointer;
+  accent-color: #667eea;
+}
+
+.interval-option span {
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+}
+
+.interval-option:has(input:checked) {
+  border-color: #667eea;
+  background: linear-gradient(135deg, #f5f7ff 0%, #e8ecff 100%);
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
+}
+
+.interval-description {
+  padding: 8px 10px;
+  background: #fff;
+  border-radius: 6px;
+  border: 1px solid #e0e0e0;
+  margin-top: 10px;
+}
+
+.interval-description small {
   font-size: 12px;
   color: #666;
-  line-height: 1.6;
-  padding-left: 18px;
-  position: relative;
-  margin-bottom: 8px;
-}
-
-.info-section li:before {
-  content: '•';
-  position: absolute;
-  left: 5px;
-  color: #667eea;
-  font-weight: bold;
-}
-
-.info-section li:last-child {
-  margin-bottom: 0;
+  font-weight: 500;
 }

@@ -23,32 +23,25 @@
       </div>
     </div>
 
-    <div class="cooldown-display" id="cooldownDisplay">
-      <div class="timer-icon">⏱️</div>
-      <div class="timer-info">
-        <div class="timer-label">다음 댓글까지</div>
-        <div class="timer-value" id="timerValue">00:00</div>
+    <div class="settings-section">
+      <h3>성좌 출현시간 설정</h3>
+      <div class="interval-options">
+        <label class="interval-option">
+          <input type="radio" name="pointInterval" value="10">
+          <span>10분 간격</span>
+        </label>
+        <label class="interval-option">
+          <input type="radio" name="pointInterval" value="20">
+          <span>20분 간격</span>
+        </label>
+        <label class="interval-option">
+          <input type="radio" name="pointInterval" value="30" checked>
+          <span>30분 간격</span>
+        </label>
       </div>
-    </div>
-
-    <div class="status-message" id="statusMessage">
-      <span class="status-icon">✅</span>
-      <span id="statusText">댓글 작성 가능</span>
-    </div>
-
-    <div class="controls">
-      <button id="testBtn" class="btn-test">테스트 (5초)</button>
-      <button id="refreshBtn" class="btn-primary">상태 새로고침</button>
-      <button id="resetBtn" class="btn-secondary">타이머 초기화</button>
-    </div>
-
-    <div class="info-section">
-      <h3>사용 방법</h3>
-      <ul>
-        <li>enterjoy.day에서 댓글 작성 시 자동으로 타이머가 시작됩니다</li>
-        <li>20초 동안 다음 댓글 작성까지 대기해야 합니다</li>
-        <li>남은 시간은 페이지 우측 하단에 표시됩니다</li>
-      </ul>
+      <div class="interval-description">
+        <small id="intervalDescription">매시 0분, 30분마다 초기화</small>
+      </div>
     </div>
   </div>
 
