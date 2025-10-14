@@ -298,6 +298,142 @@
   line-height: 1.6;
 }
 
+/* 컴팩트 모드 스타일 */
+body.enterjoy-mode-compact .enterjoy-timer-content {
+  padding: 10px 16px !important;
+  width: 200px !important;
+  min-width: 200px !important;
+  max-width: 200px !important;
+  gap: 0 !important;
+  justify-content: space-between !important;
+}
+
+body.enterjoy-mode-compact .enterjoy-timer-icon {
+  display: none !important;
+}
+
+body.enterjoy-mode-compact .enterjoy-timer-text {
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+  width: 100% !important;
+}
+
+body.enterjoy-mode-compact .enterjoy-timer-label {
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  margin-bottom: 0 !important;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+}
+
+body.enterjoy-mode-compact .enterjoy-timer-countdown {
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+  text-align: right !important;
+}
+
+body.enterjoy-mode-compact #enterjoy-cooldown-timer.enterjoy-timer-ready .enterjoy-timer-countdown,
+body.enterjoy-mode-compact #enterjoy-attendance-timer.enterjoy-attendance-timer-ready .enterjoy-timer-countdown,
+body.enterjoy-mode-compact #enterjoy-attendance-timer.enterjoy-attendance-timer-info .enterjoy-timer-countdown {
+  font-size: 13px !important;
+}
+
+/* 컴팩트 모드 - 타이머 위치 조정 (간격 최소화 - 붙어서 표시) */
+body.enterjoy-mode-compact #enterjoy-attendance-timer {
+  bottom: 30px !important;
+}
+
+body.enterjoy-mode-compact #enterjoy-point-timer {
+  bottom: 78px !important;
+}
+
+body.enterjoy-mode-compact #enterjoy-cooldown-timer {
+  bottom: 126px !important;
+}
+
+/* Black 테마 스타일 - 모든 상태에서 동일한 순수 검정/흰색 유지 */
+body.enterjoy-theme-black .enterjoy-timer-content {
+  background: #000000 !important;
+  color: white !important;
+  border: none !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8) !important;
+}
+
+body.enterjoy-theme-black .enterjoy-timer-label {
+  color: white !important;
+  opacity: 1 !important;
+}
+
+body.enterjoy-theme-black .enterjoy-timer-countdown {
+  color: white !important;
+}
+
+/* Black 테마 - 모든 상태에서 동일하게 유지 (색상 변화 없음) */
+body.enterjoy-theme-black #enterjoy-cooldown-timer.enterjoy-timer-ready .enterjoy-timer-content,
+body.enterjoy-theme-black #enterjoy-cooldown-timer.enterjoy-timer-warning .enterjoy-timer-content {
+  background: #000000 !important;
+  border: none !important;
+}
+
+body.enterjoy-theme-black #enterjoy-cooldown-timer.enterjoy-timer-ready .enterjoy-timer-countdown,
+body.enterjoy-theme-black #enterjoy-cooldown-timer.enterjoy-timer-warning .enterjoy-timer-countdown,
+body.enterjoy-theme-black #enterjoy-cooldown-timer.enterjoy-timer-ready .enterjoy-timer-label,
+body.enterjoy-theme-black #enterjoy-cooldown-timer.enterjoy-timer-warning .enterjoy-timer-label {
+  color: white !important;
+}
+
+/* Black 테마 - 포인트 타이머 */
+body.enterjoy-theme-black .enterjoy-point-timer-content,
+body.enterjoy-theme-black #enterjoy-point-timer.enterjoy-point-timer-warning .enterjoy-timer-content,
+body.enterjoy-theme-black #enterjoy-point-timer.enterjoy-point-timer-ready .enterjoy-timer-content {
+  background: #000000 !important;
+  border: none !important;
+}
+
+body.enterjoy-theme-black #enterjoy-point-timer .enterjoy-timer-countdown,
+body.enterjoy-theme-black #enterjoy-point-timer .enterjoy-timer-label,
+body.enterjoy-theme-black #enterjoy-point-timer.enterjoy-point-timer-warning .enterjoy-timer-countdown,
+body.enterjoy-theme-black #enterjoy-point-timer.enterjoy-point-timer-ready .enterjoy-timer-countdown {
+  color: white !important;
+}
+
+/* Black 테마 - 출석체크 타이머 */
+body.enterjoy-theme-black .enterjoy-attendance-timer-content,
+body.enterjoy-theme-black #enterjoy-attendance-timer.enterjoy-attendance-timer-info .enterjoy-timer-content,
+body.enterjoy-theme-black #enterjoy-attendance-timer.enterjoy-attendance-timer-warning .enterjoy-timer-content,
+body.enterjoy-theme-black #enterjoy-attendance-timer.enterjoy-attendance-timer-ready .enterjoy-timer-content {
+  background: #000000 !important;
+  border: none !important;
+}
+
+body.enterjoy-theme-black #enterjoy-attendance-timer .enterjoy-timer-countdown,
+body.enterjoy-theme-black #enterjoy-attendance-timer .enterjoy-timer-label,
+body.enterjoy-theme-black #enterjoy-attendance-timer.enterjoy-attendance-timer-info .enterjoy-timer-countdown,
+body.enterjoy-theme-black #enterjoy-attendance-timer.enterjoy-attendance-timer-warning .enterjoy-timer-countdown,
+body.enterjoy-theme-black #enterjoy-attendance-timer.enterjoy-attendance-timer-ready .enterjoy-timer-countdown {
+  color: white !important;
+}
+
+/* Black 테마 - 호버 효과 (검은색 유지) */
+body.enterjoy-theme-black #enterjoy-attendance-timer.enterjoy-attendance-timer-clickable:hover .enterjoy-timer-content,
+body.enterjoy-theme-black #enterjoy-attendance-timer.enterjoy-attendance-timer-info.enterjoy-attendance-timer-clickable:hover .enterjoy-timer-content {
+  box-shadow: 0 12px 40px rgba(255, 255, 255, 0.3) !important;
+}
+
+/* Black 테마 - 배너 (모두 검정/흰색으로 통일) */
+body.enterjoy-theme-black .enterjoy-ready-banner,
+body.enterjoy-theme-black .enterjoy-point-banner,
+body.enterjoy-theme-black .enterjoy-attendance-banner {
+  background: #000000 !important;
+  color: white !important;
+  border: none !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8) !important;
+}
+
 /* 반응형 디자인 */
 @media (max-width: 768px) {
   #enterjoy-cooldown-timer {

@@ -8,8 +8,8 @@
 </head>
 <body>
   <div class="container">
-    <h1>EnterJoy 댓글 타이머</h1>
-    <p class="subtitle">댓글 쿨다운 관리</p>
+    <h1>엔쪼 알리미</h1>
+    <p class="subtitle">v0.91</p>
 
     <div class="toggle-section">
       <div class="toggle-container">
@@ -24,23 +24,54 @@
     </div>
 
     <div class="settings-section">
-      <h3>성좌 출현시간 설정</h3>
       <div class="interval-options">
-        <label class="interval-option">
-          <input type="radio" name="pointInterval" value="10">
-          <span>10분 간격</span>
-        </label>
-        <label class="interval-option">
-          <input type="radio" name="pointInterval" value="20">
-          <span>20분 간격</span>
-        </label>
-        <label class="interval-option">
-          <input type="radio" name="pointInterval" value="30" checked>
-          <span>30분 간격</span>
-        </label>
+        <span class="settings-label">성좌 출현시간</span>
+        <div class="interval-row">
+          <label class="interval-option">
+            <input type="radio" name="pointInterval" value="10">
+            <span>10분</span>
+          </label>
+          <label class="interval-option">
+            <input type="radio" name="pointInterval" value="20">
+            <span>20분</span>
+          </label>
+          <label class="interval-option">
+            <input type="radio" name="pointInterval" value="30" checked>
+            <span>30분</span>
+          </label>
+        </div>
       </div>
-      <div class="interval-description">
-        <small id="intervalDescription">매시 0분, 30분마다 초기화</small>
+    </div>
+
+    <div class="settings-section">
+      <div class="theme-options">
+        <span class="settings-label">테마</span>
+        <div class="interval-row">
+          <label class="interval-option">
+            <input type="radio" name="theme" value="color" checked>
+            <span>Color</span>
+          </label>
+          <label class="interval-option">
+            <input type="radio" name="theme" value="black">
+            <span>Black</span>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <div class="mode-options">
+        <span class="settings-label">알리미 모드</span>
+        <div class="interval-row">
+          <label class="interval-option">
+            <input type="radio" name="timerMode" value="normal" checked>
+            <span>일반</span>
+          </label>
+          <label class="interval-option">
+            <input type="radio" name="timerMode" value="compact">
+            <span>컴팩트</span>
+          </label>
+        </div>
       </div>
     </div>
   </div>

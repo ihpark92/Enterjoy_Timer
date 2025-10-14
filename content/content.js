@@ -47,16 +47,76 @@
   setupAlertInterceptor();
 
   // 설정 확인 (기본값: true)
-  chrome.storage.sync.get(['enabled', 'pointInterval'], function(result) {
+  chrome.storage.sync.get(['enabled', 'pointInterval', 'theme', 'timerMode'], function(result) {
     isExtensionEnabled = result.enabled !== false; // undefined일 경우 true로 처리
     pointInterval = result.pointInterval || 30; // 기본값: 30분
+    const theme = result.theme || 'color'; // 기본값: color
+    const timerMode = result.timerMode || 'normal'; // 기본값: normal
+
+    // 테마 적용
+    applyTheme(theme);
+
+    // 타이머 모드 적용 (body 클래스만 적용, 라벨은 생성 시 결정)
+    if (timerMode === 'compact') {
+      document.body.classList.add('enterjoy-mode-compact');
+    } else {
+      document.body.classList.add('enterjoy-mode-normal');
+    }
 
     if (!isExtensionEnabled) {
       return;
     }
 
-    initializeExtension();
+    initializeExtension(timerMode);
   });
+
+  function applyTheme(theme) {
+    // 기존 테마 클래스 제거
+    document.body.classList.remove('enterjoy-theme-color', 'enterjoy-theme-black');
+
+    // 새 테마 적용
+    if (theme === 'black') {
+      document.body.classList.add('enterjoy-theme-black');
+    } else {
+      document.body.classList.add('enterjoy-theme-color');
+    }
+  }
+
+  function applyTimerMode(mode) {
+    // 기존 모드 클래스 제거
+    document.body.classList.remove('enterjoy-mode-normal', 'enterjoy-mode-compact');
+
+    // 새 모드 적용
+    if (mode === 'compact') {
+      document.body.classList.add('enterjoy-mode-compact');
+      // 컴팩트 모드에서 라벨 변경
+      updateTimerLabels(true);
+    } else {
+      document.body.classList.add('enterjoy-mode-normal');
+      // 일반 모드에서 라벨 복원
+      updateTimerLabels(false);
+    }
+  }
+
+  function updateTimerLabels(isCompact) {
+    // 댓글 타이머 라벨
+    const commentLabel = document.querySelector('#enterjoy-cooldown-timer .enterjoy-timer-label');
+    if (commentLabel) {
+      commentLabel.textContent = isCompact ? '다음 댓글' : '다음 댓글까지';
+    }
+
+    // 포인트 타이머 라벨
+    const pointLabel = document.querySelector('#enterjoy-point-timer .enterjoy-timer-label');
+    if (pointLabel) {
+      pointLabel.textContent = isCompact ? '성좌 출현' : '성좌님 출현까지';
+    }
+
+    // 출석체크 타이머 라벨
+    const attendanceLabel = document.querySelector('#enterjoy-attendance-timer .enterjoy-timer-label');
+    if (attendanceLabel) {
+      attendanceLabel.textContent = isCompact ? '무료포 수령' : '무료포인트 수령까지';
+    }
+  }
 
   function setupAlertInterceptor() {
     // alert 감지 (팝업에서 시간 추출)
@@ -82,15 +142,17 @@
     };
   }
 
-  function initializeExtension() {
-    // 타이머 UI 생성
-    createTimerUI();
+  function initializeExtension(timerMode) {
+    const isCompact = timerMode === 'compact';
 
-    // 포인트 타이머 UI 생성
-    createPointTimerUI();
+    // 타이머 UI 생성 (모드에 따라)
+    createTimerUI(isCompact);
 
-    // 출석체크 타이머 UI 생성
-    createAttendanceTimerUI();
+    // 포인트 타이머 UI 생성 (모드에 따라)
+    createPointTimerUI(isCompact);
+
+    // 출석체크 타이머 UI 생성 (모드에 따라)
+    createAttendanceTimerUI(isCompact);
 
     // 저장된 마지막 댓글 시간 확인
     checkCooldownStatus();
@@ -167,7 +229,9 @@
   }
 
 
-  function createTimerUI() {
+  function createTimerUI(isCompact) {
+    const label = isCompact ? '다음 댓글' : '다음 댓글까지';
+
     // 타이머 엘리먼트 생성
     timerElement = document.createElement('div');
     timerElement.id = 'enterjoy-cooldown-timer';
@@ -176,7 +240,7 @@
       <div class="enterjoy-timer-content">
         <div class="enterjoy-timer-icon">💬</div>
         <div class="enterjoy-timer-text">
-          <span class="enterjoy-timer-label">다음 댓글까지</span>
+          <span class="enterjoy-timer-label">${label}</span>
           <span class="enterjoy-timer-countdown" id="enterjoy-countdown">00:00</span>
         </div>
       </div>
@@ -192,7 +256,9 @@
     }
   }
 
-  function createPointTimerUI() {
+  function createPointTimerUI(isCompact) {
+    const label = isCompact ? '성좌 출현' : '성좌님 출현까지';
+
     // 포인트 타이머 엘리먼트 생성
     pointTimerElement = document.createElement('div');
     pointTimerElement.id = 'enterjoy-point-timer';
@@ -201,7 +267,7 @@
       <div class="enterjoy-timer-content enterjoy-point-timer-content">
         <div class="enterjoy-timer-icon">🎁</div>
         <div class="enterjoy-timer-text">
-          <span class="enterjoy-timer-label">성좌님 출현까지</span>
+          <span class="enterjoy-timer-label">${label}</span>
           <span class="enterjoy-timer-countdown" id="enterjoy-point-countdown">00:00</span>
         </div>
       </div>
@@ -217,7 +283,8 @@
     }
   }
 
-  function createAttendanceTimerUI() {
+  function createAttendanceTimerUI(isCompact) {
+    const label = isCompact ? '무료포 수령' : '무료포인트 수령까지';
 
     // 출석체크 타이머 엘리먼트 생성
     attendanceTimerElement = document.createElement('div');
@@ -227,7 +294,7 @@
       <div class="enterjoy-timer-content enterjoy-attendance-timer-content">
         <div class="enterjoy-timer-icon">💰</div>
         <div class="enterjoy-timer-text">
-          <span class="enterjoy-timer-label">무료포인트 수령까지</span>
+          <span class="enterjoy-timer-label">${label}</span>
           <span class="enterjoy-timer-countdown" id="enterjoy-attendance-countdown">클릭하여 확인</span>
         </div>
       </div>
@@ -962,24 +1029,29 @@
       isExtensionEnabled = request.enabled;
 
       if (isExtensionEnabled) {
-        // 활성화: 모든 타이머 표시
-        if (!timerElement) {
-          createTimerUI();
-        } else {
-          timerElement.style.display = 'flex';
-        }
+        // 현재 모드 확인
+        chrome.storage.sync.get(['timerMode'], function(result) {
+          const isCompact = (result.timerMode || 'normal') === 'compact';
 
-        if (!pointTimerElement) {
-          createPointTimerUI();
-        } else {
-          pointTimerElement.style.display = 'flex';
-        }
+          // 활성화: 모든 타이머 표시
+          if (!timerElement) {
+            createTimerUI(isCompact);
+          } else {
+            timerElement.style.display = 'flex';
+          }
 
-        if (!attendanceTimerElement) {
-          createAttendanceTimerUI();
-        } else {
-          attendanceTimerElement.style.display = 'flex';
-        }
+          if (!pointTimerElement) {
+            createPointTimerUI(isCompact);
+          } else {
+            pointTimerElement.style.display = 'flex';
+          }
+
+          if (!attendanceTimerElement) {
+            createAttendanceTimerUI(isCompact);
+          } else {
+            attendanceTimerElement.style.display = 'flex';
+          }
+        });
 
         // 타이머 상태 확인 및 시작
         checkCooldownStatus();
@@ -1028,6 +1100,22 @@
 
       // 타이머 즉시 재계산
       updatePointTimer();
+
+      sendResponse({ success: true });
+      return true;
+    }
+
+    if (request.action === 'updateTheme') {
+      // 테마 업데이트
+      applyTheme(request.theme);
+
+      sendResponse({ success: true });
+      return true;
+    }
+
+    if (request.action === 'updateTimerMode') {
+      // 타이머 모드 업데이트
+      applyTimerMode(request.mode);
 
       sendResponse({ success: true });
       return true;

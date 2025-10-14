@@ -67,8 +67,8 @@ h1 {
 .toggle-switch {
   position: relative;
   display: inline-block;
-  width: 50px;
-  height: 26px;
+  width: 40px;
+  height: 20px;
 }
 
 .toggle-switch input {
@@ -86,14 +86,14 @@ h1 {
   bottom: 0;
   background-color: #ccc;
   transition: 0.3s;
-  border-radius: 26px;
+  border-radius: 20px;
 }
 
 .toggle-slider:before {
   position: absolute;
   content: "";
-  height: 20px;
-  width: 20px;
+  height: 14px;
+  width: 14px;
   left: 3px;
   bottom: 3px;
   background-color: white;
@@ -107,7 +107,7 @@ h1 {
 }
 
 .toggle-switch input:checked + .toggle-slider:before {
-  transform: translateX(24px);
+  transform: translateX(20px);
 }
 
 .toggle-switch input:focus + .toggle-slider {
@@ -292,46 +292,42 @@ button {
 .settings-section {
   background: #f8f9fa;
   border-radius: 10px;
-  padding: 15px;
+  padding: 12px 15px;
   margin-top: 15px;
   border: 2px solid #e0e0e0;
-}
-
-.settings-section h3 {
-  font-size: 14px;
-  color: #667eea;
-  margin-bottom: 15px;
-  font-weight: 600;
 }
 
 .interval-options {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  margin-bottom: 10px;
+  gap: 8px;
+}
+
+.settings-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #667eea;
+  margin-bottom: 5px;
+  display: block;
+}
+
+.interval-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .interval-option {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  padding: 10px;
-  background: white;
-  border: 2px solid #e0e0e0;
-  border-radius: 8px;
   cursor: pointer;
-  transition: all 0.2s ease;
   user-select: none;
 }
 
-.interval-option:hover {
-  border-color: #667eea;
-  background: #f5f7ff;
-}
-
 .interval-option input[type="radio"] {
-  width: 18px;
-  height: 18px;
-  margin-right: 10px;
+  width: 16px;
+  height: 16px;
+  margin-right: 4px;
   cursor: pointer;
   accent-color: #667eea;
 }
@@ -340,24 +336,5 @@ button {
   font-size: 14px;
   font-weight: 500;
   color: #333;
-}
-
-.interval-option:has(input:checked) {
-  border-color: #667eea;
-  background: linear-gradient(135deg, #f5f7ff 0%, #e8ecff 100%);
-  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
-}
-
-.interval-description {
-  padding: 8px 10px;
-  background: #fff;
-  border-radius: 6px;
-  border: 1px solid #e0e0e0;
-  margin-top: 10px;
-}
-
-.interval-description small {
-  font-size: 12px;
-  color: #666;
-  font-weight: 500;
+  margin-right: 8px;
 }
