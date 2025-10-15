@@ -24,6 +24,18 @@
   let attendanceTimerInterval = null;
   let attendanceTimerElement = null;
 
+  // 드래그 앤 드롭 관리
+  const POSITION_STORAGE_KEY = 'enterjoy_timer_positions';
+  let isDragging = false;
+  let currentDragElement = null;
+  let dragStartX = 0;
+  let dragStartY = 0;
+  let elementStartX = 0;
+  let elementStartY = 0;
+  let isGroupDrag = false;
+  // 그룹 드래그 시 각 타이머의 초기 위치 저장
+  let groupDragStartPositions = {};
+
   // 페이지가 enterjoy.day인지 먼저 확인
   if (!window.location.href.includes('enterjoy.day')) {
     return;
@@ -53,6 +65,12 @@
     const theme = result.theme || 'color'; // 기본값: color
     const timerMode = result.timerMode || 'normal'; // 기본값: normal
 
+    console.log('[EnterJoy Init] 🚀 확장프로그램 초기화');
+    console.log('[EnterJoy Init] 활성화 상태:', isExtensionEnabled);
+    console.log('[EnterJoy Init] 성좌 출현시간:', pointInterval, '분');
+    console.log('[EnterJoy Init] 테마:', theme);
+    console.log('[EnterJoy Init] 모드:', timerMode);
+
     // 테마 적용
     applyTheme(theme);
 
@@ -64,6 +82,7 @@
     }
 
     if (!isExtensionEnabled) {
+      console.log('[EnterJoy Init] ⚠️ 확장프로그램이 비활성화되어 있습니다.');
       return;
     }
 
@@ -171,9 +190,6 @@
 
     // bfcache 복원 감지 (뒤로가기/앞으로가기)
     setupPageShowListener();
-
-    // 페이지 visibility 변경 감지
-    setupVisibilityListener();
   }
 
   function setupPageShowListener() {
@@ -181,15 +197,6 @@
     window.addEventListener('pageshow', function(event) {
       if (event.persisted) {
         // bfcache에서 복원됨 (뒤로가기/앞으로가기)
-        refreshTimer();
-      }
-    });
-  }
-
-  function setupVisibilityListener() {
-    // visibilitychange 이벤트: 탭이 다시 보이게 될 때
-    document.addEventListener('visibilitychange', function() {
-      if (!document.hidden) {
         refreshTimer();
       }
     });
@@ -228,7 +235,6 @@
     });
   }
 
-
   function createTimerUI(isCompact) {
     const label = isCompact ? '다음 댓글' : '다음 댓글까지';
 
@@ -236,6 +242,7 @@
     timerElement = document.createElement('div');
     timerElement.id = 'enterjoy-cooldown-timer';
     timerElement.className = 'enterjoy-timer-visible';
+    timerElement.dataset.timerType = 'comment';
     timerElement.innerHTML = `
       <div class="enterjoy-timer-content">
         <div class="enterjoy-timer-icon">💬</div>
@@ -249,9 +256,14 @@
     // body가 준비될 때까지 대기
     if (document.body) {
       document.body.appendChild(timerElement);
+      // 저장된 위치 복원 및 드래그 이벤트 추가
+      restoreTimerPosition(timerElement);
+      attachDragListeners(timerElement);
     } else {
       document.addEventListener('DOMContentLoaded', function() {
         document.body.appendChild(timerElement);
+        restoreTimerPosition(timerElement);
+        attachDragListeners(timerElement);
       });
     }
   }
@@ -263,6 +275,7 @@
     pointTimerElement = document.createElement('div');
     pointTimerElement.id = 'enterjoy-point-timer';
     pointTimerElement.className = 'enterjoy-timer-visible';
+    pointTimerElement.dataset.timerType = 'point';
     pointTimerElement.innerHTML = `
       <div class="enterjoy-timer-content enterjoy-point-timer-content">
         <div class="enterjoy-timer-icon">🎁</div>
@@ -276,9 +289,13 @@
     // body가 준비될 때까지 대기
     if (document.body) {
       document.body.appendChild(pointTimerElement);
+      restoreTimerPosition(pointTimerElement);
+      attachDragListeners(pointTimerElement);
     } else {
       document.addEventListener('DOMContentLoaded', function() {
         document.body.appendChild(pointTimerElement);
+        restoreTimerPosition(pointTimerElement);
+        attachDragListeners(pointTimerElement);
       });
     }
   }
@@ -290,6 +307,7 @@
     attendanceTimerElement = document.createElement('div');
     attendanceTimerElement.id = 'enterjoy-attendance-timer';
     attendanceTimerElement.className = 'enterjoy-timer-visible';
+    attendanceTimerElement.dataset.timerType = 'attendance';
     attendanceTimerElement.innerHTML = `
       <div class="enterjoy-timer-content enterjoy-attendance-timer-content">
         <div class="enterjoy-timer-icon">💰</div>
@@ -302,6 +320,10 @@
 
     // 클릭 이벤트 추가 (capture phase에서 처리하여 확실히 동작하도록)
     attendanceTimerElement.addEventListener('click', function(e) {
+      // 드래그 중이면 클릭 무시
+      if (isDragging) {
+        return;
+      }
       // 클릭 가능한 상태인지 확인
       if (attendanceTimerElement.classList.contains('enterjoy-attendance-timer-clickable')) {
         console.log('출석체크 타이머 클릭 - 포인트 페이지로 이동');
@@ -314,9 +336,13 @@
     // body가 준비될 때까지 대기
     if (document.body) {
       document.body.appendChild(attendanceTimerElement);
+      restoreTimerPosition(attendanceTimerElement);
+      attachDragListeners(attendanceTimerElement);
     } else {
       document.addEventListener('DOMContentLoaded', function() {
         document.body.appendChild(attendanceTimerElement);
+        restoreTimerPosition(attendanceTimerElement);
+        attachDragListeners(attendanceTimerElement);
       });
     }
   }
@@ -459,8 +485,14 @@
 
     // 총 남은 초 계산
     let totalSeconds = minutesRemaining * 60 - (60 - secondsRemaining);
-    if (totalSeconds <= 0) {
+
+    if (totalSeconds < 0) {
       totalSeconds = 0;
+    }
+
+    // 10초 이하일 때만 디버그 로그 출력
+    if (totalSeconds <= 10) {
+      console.log('[EnterJoy Debug] 현재:', currentMinute + '분', currentSecond + '초', '/ 목표:', targetMinute + '분 / 남은 초:', totalSeconds, '/ minutesRemaining:', minutesRemaining, '/ secondsRemaining:', secondsRemaining);
     }
 
     return totalSeconds;
@@ -472,6 +504,12 @@
     const seconds = remainingSeconds % 60;
     const display = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 
+    // 디버깅: 10초 이하일 때 로그 출력
+    if (remainingSeconds <= 10) {
+      console.log('[EnterJoy Timer] 남은 시간:', remainingSeconds, '초');
+      console.log('[EnterJoy Timer] 현재 간격 설정:', pointInterval, '분');
+    }
+
     const countdownElement = document.getElementById('enterjoy-point-countdown');
     if (countdownElement) {
       countdownElement.textContent = display;
@@ -479,6 +517,7 @@
 
     // 포인트 수집 시간이 되었을 때
     if (remainingSeconds === 0) {
+      console.log('[EnterJoy Timer] ⏰ 타이머 0초 도달! - showPointReadyNotification 호출');
       showPointReadyNotification();
     }
 
@@ -494,9 +533,6 @@
   }
 
   function showPointReadyNotification() {
-    // 알림 표시
-    showNotification('포인트 수집 가능!', '지금 포인트 아이콘을 클릭하세요!');
-
     // 짧은 알림 배너 표시
     const banner = document.createElement('div');
     banner.className = 'enterjoy-ready-banner enterjoy-point-banner';
@@ -593,9 +629,6 @@
   }
 
   function showAttendanceReadyNotification() {
-    // 알림 표시
-    showNotification('출석체크 가능!', '24시간이 지났습니다. 출석체크 하세요!');
-
     // 짧은 알림 배너 표시
     const banner = document.createElement('div');
     banner.className = 'enterjoy-ready-banner enterjoy-attendance-banner';
@@ -821,9 +854,6 @@
   }
 
   function notifyReady() {
-    // 알림 표시
-    showNotification('댓글 작성 가능!', '이제 새로운 댓글을 작성할 수 있습니다.');
-
     // 짧은 알림 배너 표시
     const banner = document.createElement('div');
     banner.className = 'enterjoy-ready-banner';
@@ -840,14 +870,274 @@
     }, 3000);
   }
 
-  function showNotification(title, message) {
-    // 백그라운드 스크립트에 알림 요청
-    chrome.runtime.sendMessage({
-      action: 'notify',
-      title: title,
-      message: message
+  // ========== 드래그 앤 드롭 기능 ==========
+
+  // 타이머 위치 복원
+  function restoreTimerPosition(element) {
+    chrome.storage.local.get([POSITION_STORAGE_KEY], function(result) {
+      const positions = result[POSITION_STORAGE_KEY];
+      if (positions && positions[element.id]) {
+        const pos = positions[element.id];
+        element.style.left = pos.left;
+        element.style.top = pos.top;
+        element.style.right = 'auto';
+        element.style.bottom = 'auto';
+      }
     });
   }
+
+  // 타이머 위치 저장
+  function saveTimerPosition(element) {
+    chrome.storage.local.get([POSITION_STORAGE_KEY], function(result) {
+      const positions = result[POSITION_STORAGE_KEY] || {};
+      const rect = element.getBoundingClientRect();
+
+      positions[element.id] = {
+        left: element.style.left,
+        top: element.style.top
+      };
+
+      chrome.storage.local.set({ [POSITION_STORAGE_KEY]: positions });
+    });
+  }
+
+  // 모든 타이머 위치 초기화
+  function resetAllTimerPositions() {
+    chrome.storage.local.remove(POSITION_STORAGE_KEY, function() {
+      // 각 타이머를 기본 위치로 복원
+      if (timerElement) {
+        timerElement.style.left = 'auto';
+        timerElement.style.top = 'auto';
+        timerElement.style.right = '';
+        timerElement.style.bottom = '';
+      }
+      if (pointTimerElement) {
+        pointTimerElement.style.left = 'auto';
+        pointTimerElement.style.top = 'auto';
+        pointTimerElement.style.right = '';
+        pointTimerElement.style.bottom = '';
+      }
+      if (attendanceTimerElement) {
+        attendanceTimerElement.style.left = 'auto';
+        attendanceTimerElement.style.top = 'auto';
+        attendanceTimerElement.style.right = '';
+        attendanceTimerElement.style.bottom = '';
+      }
+    });
+  }
+
+  // 드래그 이벤트 리스너 추가
+  function attachDragListeners(element) {
+    element.style.cursor = 'move';
+
+    element.addEventListener('mousedown', handleMouseDown);
+    element.addEventListener('touchstart', handleTouchStart, { passive: false });
+  }
+
+  function handleMouseDown(e) {
+    // 드래그 시작
+    const element = e.currentTarget;
+
+    // Ctrl 또는 Shift 키가 눌렸는지 확인 (그룹 드래그)
+    isGroupDrag = e.ctrlKey || e.shiftKey;
+
+    isDragging = true;
+    currentDragElement = element;
+    dragStartX = e.clientX;
+    dragStartY = e.clientY;
+
+    const rect = element.getBoundingClientRect();
+    elementStartX = rect.left;
+    elementStartY = rect.top;
+
+    // 드래그 중 스타일 추가
+    element.classList.add('enterjoy-timer-dragging');
+
+    if (isGroupDrag) {
+      // 그룹 드래그 시 모든 타이머의 초기 위치 저장
+      groupDragStartPositions = {};
+
+      if (timerElement) {
+        const timerRect = timerElement.getBoundingClientRect();
+        groupDragStartPositions['enterjoy-cooldown-timer'] = {
+          left: timerRect.left,
+          top: timerRect.top
+        };
+        timerElement.classList.add('enterjoy-timer-dragging');
+      }
+
+      if (pointTimerElement) {
+        const pointRect = pointTimerElement.getBoundingClientRect();
+        groupDragStartPositions['enterjoy-point-timer'] = {
+          left: pointRect.left,
+          top: pointRect.top
+        };
+        pointTimerElement.classList.add('enterjoy-timer-dragging');
+      }
+
+      if (attendanceTimerElement) {
+        const attendanceRect = attendanceTimerElement.getBoundingClientRect();
+        groupDragStartPositions['enterjoy-attendance-timer'] = {
+          left: attendanceRect.left,
+          top: attendanceRect.top
+        };
+        attendanceTimerElement.classList.add('enterjoy-timer-dragging');
+      }
+    }
+
+    // 전역 이벤트 리스너 추가
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    e.preventDefault();
+  }
+
+  function handleMouseMove(e) {
+    if (!isDragging || !currentDragElement) return;
+
+    const deltaX = e.clientX - dragStartX;
+    const deltaY = e.clientY - dragStartY;
+
+    if (isGroupDrag) {
+      // 그룹 드래그: 모든 타이머 이동
+      moveTimer(timerElement, deltaX, deltaY);
+      moveTimer(pointTimerElement, deltaX, deltaY);
+      moveTimer(attendanceTimerElement, deltaX, deltaY);
+    } else {
+      // 개별 드래그: 현재 타이머만 이동
+      moveTimer(currentDragElement, deltaX, deltaY);
+    }
+
+    e.preventDefault();
+  }
+
+  function moveTimer(element, deltaX, deltaY) {
+    if (!element) return;
+
+    const rect = element.getBoundingClientRect();
+    let startX, startY;
+
+    if (element === currentDragElement) {
+      // 현재 드래그 중인 엘리먼트
+      startX = elementStartX;
+      startY = elementStartY;
+    } else if (isGroupDrag && groupDragStartPositions[element.id]) {
+      // 그룹 드래그: 저장된 초기 위치 사용
+      startX = groupDragStartPositions[element.id].left;
+      startY = groupDragStartPositions[element.id].top;
+    } else {
+      // 기본 동작 (개별 드래그 시)
+      return;
+    }
+
+    let newX = startX + deltaX;
+    let newY = startY + deltaY;
+
+    // 화면 경계 제한
+    const maxX = window.innerWidth - rect.width;
+    const maxY = window.innerHeight - rect.height;
+
+    newX = Math.max(0, Math.min(newX, maxX));
+    newY = Math.max(0, Math.min(newY, maxY));
+
+    element.style.left = newX + 'px';
+    element.style.top = newY + 'px';
+    element.style.right = 'auto';
+    element.style.bottom = 'auto';
+  }
+
+  function handleMouseUp(e) {
+    if (!isDragging) return;
+
+    isDragging = false;
+
+    // 드래그 스타일 제거
+    if (currentDragElement) {
+      currentDragElement.classList.remove('enterjoy-timer-dragging');
+    }
+    if (timerElement) timerElement.classList.remove('enterjoy-timer-dragging');
+    if (pointTimerElement) pointTimerElement.classList.remove('enterjoy-timer-dragging');
+    if (attendanceTimerElement) attendanceTimerElement.classList.remove('enterjoy-timer-dragging');
+
+    // 위치 저장
+    if (isGroupDrag) {
+      // 그룹 드래그: 모든 타이머 위치 저장
+      if (timerElement) saveTimerPosition(timerElement);
+      if (pointTimerElement) saveTimerPosition(pointTimerElement);
+      if (attendanceTimerElement) saveTimerPosition(attendanceTimerElement);
+    } else {
+      // 개별 드래그: 현재 타이머만 저장
+      if (currentDragElement) saveTimerPosition(currentDragElement);
+    }
+
+    // 초기화
+    currentDragElement = null;
+    isGroupDrag = false;
+    groupDragStartPositions = {};
+
+    // 전역 이벤트 리스너 제거
+    document.removeEventListener('mousemove', handleMouseMove);
+    document.removeEventListener('mouseup', handleMouseUp);
+
+    e.preventDefault();
+  }
+
+  // 터치 이벤트 핸들러 (모바일 지원)
+  function handleTouchStart(e) {
+    const element = e.currentTarget;
+    const touch = e.touches[0];
+
+    // Ctrl/Shift는 터치에서 지원하지 않으므로 개별 드래그만
+    isGroupDrag = false;
+
+    isDragging = true;
+    currentDragElement = element;
+    dragStartX = touch.clientX;
+    dragStartY = touch.clientY;
+
+    const rect = element.getBoundingClientRect();
+    elementStartX = rect.left;
+    elementStartY = rect.top;
+
+    element.classList.add('enterjoy-timer-dragging');
+
+    document.addEventListener('touchmove', handleTouchMove, { passive: false });
+    document.addEventListener('touchend', handleTouchEnd);
+
+    e.preventDefault();
+  }
+
+  function handleTouchMove(e) {
+    if (!isDragging || !currentDragElement) return;
+
+    const touch = e.touches[0];
+    const deltaX = touch.clientX - dragStartX;
+    const deltaY = touch.clientY - dragStartY;
+
+    moveTimer(currentDragElement, deltaX, deltaY);
+
+    e.preventDefault();
+  }
+
+  function handleTouchEnd(e) {
+    if (!isDragging) return;
+
+    isDragging = false;
+
+    if (currentDragElement) {
+      currentDragElement.classList.remove('enterjoy-timer-dragging');
+      saveTimerPosition(currentDragElement);
+    }
+
+    currentDragElement = null;
+
+    document.removeEventListener('touchmove', handleTouchMove);
+    document.removeEventListener('touchend', handleTouchEnd);
+
+    e.preventDefault();
+  }
+
+  // ========== 드래그 앤 드롭 기능 끝 ==========
 
   function observeCommentForms() {
     // 댓글 제출 버튼 감지 (일반적인 선택자들)
@@ -1096,6 +1386,7 @@
 
     if (request.action === 'updatePointInterval') {
       // 포인트 간격 업데이트
+      console.log('[EnterJoy] 🔄 성좌 출현시간 변경:', pointInterval, '분 →', request.interval, '분');
       pointInterval = request.interval;
 
       // 타이머 즉시 재계산
@@ -1116,6 +1407,14 @@
     if (request.action === 'updateTimerMode') {
       // 타이머 모드 업데이트
       applyTimerMode(request.mode);
+
+      sendResponse({ success: true });
+      return true;
+    }
+
+    if (request.action === 'resetTimerPositions') {
+      // 타이머 위치 초기화
+      resetAllTimerPositions();
 
       sendResponse({ success: true });
       return true;

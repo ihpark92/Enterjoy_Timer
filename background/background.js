@@ -1,11 +1,3 @@
-// Browser API Polyfill 로드
-try {
-  importScripts('../browser-polyfill.js');
-} catch (e) {
-  // Chrome은 importScripts를 지원하지 않을 수 있음
-  // 이미 전역에 browser-polyfill이 로드되어 있거나 chrome 객체가 있음
-}
-
 // 확장프로그램이 설치되거나 업데이트될 때 실행
 chrome.runtime.onInstalled.addListener(function(details) {
   console.log('EnterJoy Extension installed:', details.reason);
@@ -42,17 +34,6 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
     return true; // 비동기 응답을 위해 true 반환
   }
 
-  if (request.action === 'notify') {
-    // 알림 생성
-    chrome.notifications.create({
-      type: 'basic',
-      iconUrl: 'icons/icon48.png',
-      title: 'EnterJoy Extension',
-      message: request.message || '알림 메시지'
-    });
-    sendResponse({ success: true });
-  }
-
   return true;
 });
 
@@ -60,15 +41,5 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
 chrome.tabs.onUpdated.addListener(function(tabId, changeInfo, tab) {
   if (changeInfo.status === 'complete') {
     console.log('Tab loaded:', tab.url);
-  }
-});
-
-// 알람 설정 (선택사항)
-chrome.alarms.create('periodicCheck', { periodInMinutes: 60 });
-
-chrome.alarms.onAlarm.addListener(function(alarm) {
-  if (alarm.name === 'periodicCheck') {
-    console.log('Periodic check triggered');
-    // 주기적으로 실행할 작업
   }
 });

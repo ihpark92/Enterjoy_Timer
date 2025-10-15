@@ -47,6 +47,22 @@ h1 {
 .toggle-container {
   display: flex;
   align-items: center;
+  margin-bottom: 12px;
+}
+
+.toggle-container:last-of-type {
+  margin-bottom: 8px;
+}
+
+.setting-hint {
+  font-size: 11px;
+  color: #888;
+  line-height: 1.4;
+  margin: 0;
+  padding: 8px 10px;
+  background: #fff;
+  border-radius: 6px;
+  border-left: 3px solid #667eea;
 }
 
 .toggle-label {
@@ -337,4 +353,38 @@ button {
   font-weight: 500;
   color: #333;
   margin-right: 8px;
+}
+
+/* 위치 초기화 섹션 */
+.position-reset {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.btn-reset {
+  background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+  color: white;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.btn-reset:hover {
+  background: linear-gradient(135deg, #ee5a24 0%, #d84315 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(238, 90, 36, 0.3);
+}
+
+.btn-reset:active {
+  transform: translateY(0);
 }

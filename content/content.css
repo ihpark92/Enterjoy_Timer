@@ -8,6 +8,25 @@
   right: 30px;
   z-index: 999999;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+  cursor: move;
+}
+
+/* 드래그 중 스타일 */
+#enterjoy-cooldown-timer.enterjoy-timer-dragging,
+#enterjoy-point-timer.enterjoy-timer-dragging,
+#enterjoy-attendance-timer.enterjoy-timer-dragging {
+  opacity: 0.8;
+  cursor: grabbing !important;
+  transition: opacity 0.2s;
+  z-index: 10000000 !important;
+}
+
+#enterjoy-cooldown-timer.enterjoy-timer-dragging .enterjoy-timer-content,
+#enterjoy-point-timer.enterjoy-timer-dragging .enterjoy-timer-content,
+#enterjoy-attendance-timer.enterjoy-timer-dragging .enterjoy-timer-content {
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5) !important;
+  transform: scale(1.05);
 }
 
 /* 댓글 쿨다운 타이머 - 맨 위 */
