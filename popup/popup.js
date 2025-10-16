@@ -1,63 +1,48 @@
 // 팝업이 로드될 때 실행
 document.addEventListener('DOMContentLoaded', function() {
-  const enableToggle = document.getElementById('enableToggle');
-  const intervalOptions = document.getElementsByName('pointInterval');
+  const timerCommentToggle = document.getElementById('timerCommentToggle');
+  const timerPointToggle = document.getElementById('timerPointToggle');
+  const timerAttendanceToggle = document.getElementById('timerAttendanceToggle');
   const themeOptions = document.getElementsByName('theme');
   const timerModeOptions = document.getElementsByName('timerMode');
-  const intervalDescription = document.getElementById('intervalDescription');
   const resetPositionBtn = document.getElementById('resetPositionBtn');
 
   // 초기 상태 불러오기
-  loadEnabledState();
-  loadIntervalSetting();
+  migrateOldSettings(); // 기존 설정 마이그레이션
+  loadTimerToggles();
   loadThemeSetting();
   loadTimerModeSetting();
 
-  // 활성화/비활성화 토글
-  enableToggle.addEventListener('change', async function() {
-    const isEnabled = enableToggle.checked;
+  // 댓글 타이머 토글
+  timerCommentToggle.addEventListener('change', function() {
+    const isEnabled = timerCommentToggle.checked;
 
     // 설정 저장
-    chrome.storage.sync.set({ enabled: isEnabled }, function() {
+    chrome.storage.sync.set({ timerEnabled_comment: isEnabled }, function() {
       // 현재 탭에 메시지 전송
-      chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
-        if (tabs[0] && tabs[0].url && tabs[0].url.includes('enterjoy.day')) {
-          chrome.tabs.sendMessage(tabs[0].id, {
-            action: 'updateEnabled',
-            enabled: isEnabled
-          }, function() {
-            if (chrome.runtime.lastError) {
-              console.log('Content script not loaded yet');
-            }
-          });
-        }
-      });
+      sendTimerToggleMessage('comment', isEnabled);
     });
   });
 
-  // 성좌 출현시간 간격 설정
-  intervalOptions.forEach(option => {
-    option.addEventListener('change', function() {
-      const interval = parseInt(this.value);
+  // 성좌 타이머 토글
+  timerPointToggle.addEventListener('change', function() {
+    const isEnabled = timerPointToggle.checked;
 
-      // 설정 저장
-      chrome.storage.sync.set({ pointInterval: interval }, function() {
-        updateIntervalDescription(interval);
+    // 설정 저장
+    chrome.storage.sync.set({ timerEnabled_point: isEnabled }, function() {
+      // 현재 탭에 메시지 전송
+      sendTimerToggleMessage('point', isEnabled);
+    });
+  });
 
-        // 현재 탭에 메시지 전송
-        chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
-          if (tabs[0] && tabs[0].url && tabs[0].url.includes('enterjoy.day')) {
-            chrome.tabs.sendMessage(tabs[0].id, {
-              action: 'updatePointInterval',
-              interval: interval
-            }, function() {
-              if (chrome.runtime.lastError) {
-                console.log('Content script not loaded yet');
-              }
-            });
-          }
-        });
-      });
+  // 무료포 타이머 토글
+  timerAttendanceToggle.addEventListener('change', function() {
+    const isEnabled = timerAttendanceToggle.checked;
+
+    // 설정 저장
+    chrome.storage.sync.set({ timerEnabled_attendance: isEnabled }, function() {
+      // 현재 탭에 메시지 전송
+      sendTimerToggleMessage('attendance', isEnabled);
     });
   });
 
@@ -147,25 +132,65 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   });
 
-  function loadEnabledState() {
-    chrome.storage.sync.get(['enabled'], function(result) {
-      const isEnabled = result.enabled !== false; // 기본값: true
-      enableToggle.checked = isEnabled;
+  // 타이머 토글 메시지 전송 헬퍼 함수
+  function sendTimerToggleMessage(timerType, isEnabled) {
+    chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
+      if (tabs[0] && tabs[0].url && tabs[0].url.includes('enterjoy.day')) {
+        chrome.tabs.sendMessage(tabs[0].id, {
+          action: 'updateTimerVisibility',
+          timerType: timerType,
+          enabled: isEnabled
+        }, function() {
+          if (chrome.runtime.lastError) {
+            console.log('Content script not loaded yet');
+          }
+        });
+      }
     });
   }
 
-  function loadIntervalSetting() {
-    chrome.storage.sync.get(['pointInterval'], function(result) {
-      const interval = result.pointInterval || 30; // 기본값: 30분
+  // 기존 설정 마이그레이션 (한 번만 실행)
+  function migrateOldSettings() {
+    chrome.storage.sync.get(['enabled', 'pointInterval', '_migrated'], function(result) {
+      // 이미 마이그레이션 되었으면 스킵
+      if (result._migrated) {
+        return;
+      }
 
-      // 라디오 버튼 선택
-      intervalOptions.forEach(option => {
-        if (parseInt(option.value) === interval) {
-          option.checked = true;
-        }
+      const updates = { _migrated: true };
+
+      // 기존 enabled 설정이 있으면 변환
+      if (result.enabled !== undefined) {
+        const wasEnabled = result.enabled !== false;
+        updates.timerEnabled_comment = wasEnabled;
+        updates.timerEnabled_point = wasEnabled;
+        updates.timerEnabled_attendance = wasEnabled;
+      } else {
+        // 기본값: 모두 활성화
+        updates.timerEnabled_comment = true;
+        updates.timerEnabled_point = true;
+        updates.timerEnabled_attendance = true;
+      }
+
+      // 설정 저장 및 구 설정 제거
+      chrome.storage.sync.set(updates, function() {
+        chrome.storage.sync.remove(['enabled', 'pointInterval']);
+        console.log('Settings migrated successfully');
       });
+    });
+  }
 
-      updateIntervalDescription(interval);
+  // 타이머 토글 상태 불러오기
+  function loadTimerToggles() {
+    chrome.storage.sync.get([
+      'timerEnabled_comment',
+      'timerEnabled_point',
+      'timerEnabled_attendance'
+    ], function(result) {
+      // 기본값: 모두 활성화
+      timerCommentToggle.checked = result.timerEnabled_comment !== false;
+      timerPointToggle.checked = result.timerEnabled_point !== false;
+      timerAttendanceToggle.checked = result.timerEnabled_attendance !== false;
     });
   }
 
@@ -193,22 +218,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
       });
     });
-  }
-
-  function updateIntervalDescription(interval) {
-    if (!intervalDescription) return; // 요소가 없으면 무시
-
-    let description = '';
-
-    if (interval === 10) {
-      description = '매시 0분, 10분, 20분, 30분, 40분, 50분마다 초기화';
-    } else if (interval === 20) {
-      description = '매시 0분, 20분, 40분마다 초기화';
-    } else if (interval === 30) {
-      description = '매시 0분, 30분마다 초기화';
-    }
-
-    intervalDescription.textContent = description;
   }
 
 });

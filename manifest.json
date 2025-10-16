@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "엔쪼 알리미",
-  "version": "0.92",
-  "description": "enterjoy.day 댓글 작성 쿨다운 타이머 - 드래그 앤 드롭 지원",
+  "version": "0.93",
+  "description": "enterjoy.day 댓글 작성 쿨다운 타이머 - 개별 타이머 제어",
   "author": "EnterJoy",
   "browser_specific_settings": {
     "gecko": {

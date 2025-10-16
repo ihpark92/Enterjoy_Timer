@@ -4,18 +4,79 @@
 (function() {
   'use strict';
 
+  // Extension context 유효성 확인 헬퍼
+  function isExtensionValid() {
+    try {
+      return chrome.runtime && chrome.runtime.id;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // 안전한 chrome.storage 호출 래퍼
+  function safeStorageGet(keys, callback) {
+    if (!isExtensionValid()) {
+      // 조용히 무시 (확장프로그램 재로드 시 정상 동작)
+      return;
+    }
+    try {
+      chrome.storage.local.get(keys, callback);
+    } catch (e) {
+      // 오류 발생 시에만 로그 출력
+      if (isExtensionValid()) {
+        console.error('[EnterJoy] Storage get failed:', e);
+      }
+    }
+  }
+
+  function safeStorageSet(items, callback) {
+    if (!isExtensionValid()) {
+      // 조용히 무시 (확장프로그램 재로드 시 정상 동작)
+      return;
+    }
+    try {
+      chrome.storage.local.set(items, callback);
+    } catch (e) {
+      // 오류 발생 시에만 로그 출력
+      if (isExtensionValid()) {
+        console.error('[EnterJoy] Storage set failed:', e);
+      }
+    }
+  }
+
+  function safeStorageRemove(keys, callback) {
+    if (!isExtensionValid()) {
+      // 조용히 무시 (확장프로그램 재로드 시 정상 동작)
+      return;
+    }
+    try {
+      chrome.storage.local.remove(keys, callback);
+    } catch (e) {
+      // 오류 발생 시에만 로그 출력
+      if (isExtensionValid()) {
+        console.error('[EnterJoy] Storage remove failed:', e);
+      }
+    }
+  }
+
   // 댓글 쿨다운 관리
   const COOLDOWN_TIME = 20; // 20초
   const STORAGE_KEY = 'enterjoy_last_comment_time';
   let cooldownInterval = null;
   let timerElement = null;
-  let isExtensionEnabled = true;
   let lastSubmissionCheck = 0; // 마지막 제출 체크 시간 (중복 방지)
 
   // 포인트 수집 타이머 관리
   let pointTimerInterval = null;
   let pointTimerElement = null;
-  let pointInterval = 30; // 기본값: 30분 간격
+  const POINT_INTERVAL = 30; // 고정값: 30분 간격
+
+  // 타이머 개별 활성화 상태
+  let timerEnabled = {
+    comment: true,
+    point: true,
+    attendance: true
+  };
 
   // 출석체크 타이머 관리
   const ATTENDANCE_KEY = 'enterjoy_last_attendance_time';
@@ -58,16 +119,27 @@
   // alert 인터셉터를 가장 먼저 설정 (다른 스크립트보다 먼저)
   setupAlertInterceptor();
 
-  // 설정 확인 (기본값: true)
-  chrome.storage.sync.get(['enabled', 'pointInterval', 'theme', 'timerMode'], function(result) {
-    isExtensionEnabled = result.enabled !== false; // undefined일 경우 true로 처리
-    pointInterval = result.pointInterval || 30; // 기본값: 30분
+  // 설정 확인
+  chrome.storage.sync.get([
+    'timerEnabled_comment',
+    'timerEnabled_point',
+    'timerEnabled_attendance',
+    'theme',
+    'timerMode'
+  ], function(result) {
+    // 개별 타이머 활성화 상태 (기본값: true)
+    timerEnabled.comment = result.timerEnabled_comment !== false;
+    timerEnabled.point = result.timerEnabled_point !== false;
+    timerEnabled.attendance = result.timerEnabled_attendance !== false;
+
     const theme = result.theme || 'color'; // 기본값: color
     const timerMode = result.timerMode || 'normal'; // 기본값: normal
 
     console.log('[EnterJoy Init] 🚀 확장프로그램 초기화');
-    console.log('[EnterJoy Init] 활성화 상태:', isExtensionEnabled);
-    console.log('[EnterJoy Init] 성좌 출현시간:', pointInterval, '분');
+    console.log('[EnterJoy Init] 댓글 타이머:', timerEnabled.comment);
+    console.log('[EnterJoy Init] 성좌 타이머:', timerEnabled.point);
+    console.log('[EnterJoy Init] 무료포 타이머:', timerEnabled.attendance);
+    console.log('[EnterJoy Init] 성좌 출현시간:', POINT_INTERVAL, '분 (고정)');
     console.log('[EnterJoy Init] 테마:', theme);
     console.log('[EnterJoy Init] 모드:', timerMode);
 
@@ -81,12 +153,12 @@
       document.body.classList.add('enterjoy-mode-normal');
     }
 
-    if (!isExtensionEnabled) {
-      console.log('[EnterJoy Init] ⚠️ 확장프로그램이 비활성화되어 있습니다.');
-      return;
+    // 하나라도 활성화되어 있으면 초기화
+    if (timerEnabled.comment || timerEnabled.point || timerEnabled.attendance) {
+      initializeExtension(timerMode);
+    } else {
+      console.log('[EnterJoy Init] ⚠️ 모든 타이머가 비활성화되어 있습니다.');
     }
-
-    initializeExtension(timerMode);
   });
 
   function applyTheme(theme) {
@@ -164,29 +236,25 @@
   function initializeExtension(timerMode) {
     const isCompact = timerMode === 'compact';
 
-    // 타이머 UI 생성 (모드에 따라)
-    createTimerUI(isCompact);
+    // 댓글 타이머 (활성화된 경우에만)
+    if (timerEnabled.comment) {
+      createTimerUI(isCompact);
+      checkCooldownStatus();
+      observeCommentForms();
+    }
 
-    // 포인트 타이머 UI 생성 (모드에 따라)
-    createPointTimerUI(isCompact);
+    // 포인트 타이머 (활성화된 경우에만)
+    if (timerEnabled.point) {
+      createPointTimerUI(isCompact);
+      startPointTimer();
+    }
 
-    // 출석체크 타이머 UI 생성 (모드에 따라)
-    createAttendanceTimerUI(isCompact);
-
-    // 저장된 마지막 댓글 시간 확인
-    checkCooldownStatus();
-
-    // 포인트 타이머 시작
-    startPointTimer();
-
-    // 출석체크 타이머 시작
-    startAttendanceTimer();
-
-    // 출석체크 링크 감지
-    observeAttendanceLink();
-
-    // 댓글 폼 감지 및 이벤트 리스너 추가
-    observeCommentForms();
+    // 출석체크 타이머 (활성화된 경우에만)
+    if (timerEnabled.attendance) {
+      createAttendanceTimerUI(isCompact);
+      startAttendanceTimer();
+      observeAttendanceLink();
+    }
 
     // bfcache 복원 감지 (뒤로가기/앞으로가기)
     setupPageShowListener();
@@ -204,7 +272,9 @@
 
   function refreshTimer() {
     // 타이머 상태를 다시 확인하고 업데이트
-    chrome.storage.local.get([STORAGE_KEY], function(result) {
+    safeStorageGet([STORAGE_KEY], function(result) {
+      if (!result) return;
+
       const lastCommentTime = result[STORAGE_KEY];
 
       if (lastCommentTime) {
@@ -225,7 +295,7 @@
             clearInterval(cooldownInterval);
             cooldownInterval = null;
           }
-          chrome.storage.local.remove(STORAGE_KEY);
+          safeStorageRemove(STORAGE_KEY);
           updateTimerDisplay(0);
         }
       } else {
@@ -348,7 +418,9 @@
   }
 
   function checkCooldownStatus() {
-    chrome.storage.local.get([STORAGE_KEY], function(result) {
+    safeStorageGet([STORAGE_KEY], function(result) {
+      if (!result) return;
+
       const lastCommentTime = result[STORAGE_KEY];
 
       if (lastCommentTime) {
@@ -361,7 +433,7 @@
           startCooldown(remaining);
         } else {
           // 쿨다운 완료됨 - 스토리지 정리하고 준비 상태 표시
-          chrome.storage.local.remove(STORAGE_KEY);
+          safeStorageRemove(STORAGE_KEY);
           updateTimerDisplay(0);
         }
       } else {
@@ -395,7 +467,7 @@
         notifyReady();
 
         // 스토리지에서 마지막 댓글 시간 제거
-        chrome.storage.local.remove(STORAGE_KEY);
+        safeStorageRemove(STORAGE_KEY);
       } else {
         updateTimerDisplay(timeLeft);
       }
@@ -459,25 +531,11 @@
 
     let targetMinute;
 
-    if (pointInterval === 10) {
-      // 10분 간격: 0, 10, 20, 30, 40, 50
-      targetMinute = Math.ceil((currentMinute + 1) / 10) * 10;
-      if (targetMinute > 50) {
-        targetMinute = 60; // 다음 시간의 0분
-      }
-    } else if (pointInterval === 20) {
-      // 20분 간격: 0, 20, 40
-      targetMinute = Math.ceil((currentMinute + 1) / 20) * 20;
-      if (targetMinute > 40) {
-        targetMinute = 60; // 다음 시간의 0분
-      }
+    // 30분 간격 고정: 0, 30
+    if (currentMinute < 30) {
+      targetMinute = 30;
     } else {
-      // 30분 간격: 0, 30 (기본값)
-      if (currentMinute < 30) {
-        targetMinute = 30;
-      } else {
-        targetMinute = 60; // 다음 시간의 0분
-      }
+      targetMinute = 60; // 다음 시간의 0분
     }
 
     const minutesRemaining = targetMinute - currentMinute;
@@ -499,6 +557,15 @@
   }
 
   function updatePointTimer() {
+    // Extension context 체크 - 무효화되었으면 interval 중지
+    if (!isExtensionValid()) {
+      if (pointTimerInterval) {
+        clearInterval(pointTimerInterval);
+        pointTimerInterval = null;
+      }
+      return;
+    }
+
     const remainingSeconds = calculateTimeToNextPoint();
     const minutes = Math.floor(remainingSeconds / 60);
     const seconds = remainingSeconds % 60;
@@ -507,7 +574,7 @@
     // 디버깅: 10초 이하일 때 로그 출력
     if (remainingSeconds <= 10) {
       console.log('[EnterJoy Timer] 남은 시간:', remainingSeconds, '초');
-      console.log('[EnterJoy Timer] 현재 간격 설정:', pointInterval, '분');
+      console.log('[EnterJoy Timer] 현재 간격 설정:', POINT_INTERVAL, '분 (고정)');
     }
 
     const countdownElement = document.getElementById('enterjoy-point-countdown');
@@ -560,7 +627,18 @@
   }
 
   function updateAttendanceTimer() {
-    chrome.storage.local.get([ATTENDANCE_TARGET_KEY], function(result) {
+    // Extension context 체크 - 무효화되었으면 interval 중지
+    if (!isExtensionValid()) {
+      if (attendanceTimerInterval) {
+        clearInterval(attendanceTimerInterval);
+        attendanceTimerInterval = null;
+      }
+      return;
+    }
+
+    safeStorageGet([ATTENDANCE_TARGET_KEY], function(result) {
+      if (!result) return; // Extension context invalidated
+
       const targetTime = result[ATTENDANCE_TARGET_KEY];
 
       if (!targetTime) {
@@ -760,8 +838,8 @@
       const targetTime = targetDate.getTime();
 
       // 목표 시간을 저장
-      chrome.storage.local.set({ [ATTENDANCE_TARGET_KEY]: targetTime }, function() {
-        updateAttendanceTimer();
+      safeStorageSet({ [ATTENDANCE_TARGET_KEY]: targetTime }, function() {
+        if (updateAttendanceTimer) updateAttendanceTimer();
       });
       return;
     }
@@ -771,8 +849,8 @@
     if (match) {
       const totalSeconds = parseInt(match[1]) * 3600 + parseInt(match[2]) * 60 + parseInt(match[3]);
       const targetTime = Date.now() + (totalSeconds * 1000);
-      chrome.storage.local.set({ [ATTENDANCE_TARGET_KEY]: targetTime }, function() {
-        updateAttendanceTimer();
+      safeStorageSet({ [ATTENDANCE_TARGET_KEY]: targetTime }, function() {
+        if (updateAttendanceTimer) updateAttendanceTimer();
       });
       return;
     }
@@ -782,8 +860,8 @@
     if (match) {
       const totalSeconds = parseInt(match[1]) * 3600 + parseInt(match[2]) * 60;
       const targetTime = Date.now() + (totalSeconds * 1000);
-      chrome.storage.local.set({ [ATTENDANCE_TARGET_KEY]: targetTime }, function() {
-        updateAttendanceTimer();
+      safeStorageSet({ [ATTENDANCE_TARGET_KEY]: targetTime }, function() {
+        if (updateAttendanceTimer) updateAttendanceTimer();
       });
       return;
     }
@@ -793,8 +871,8 @@
     if (match) {
       const totalSeconds = parseInt(match[1]) * 60 + parseInt(match[2]);
       const targetTime = Date.now() + (totalSeconds * 1000);
-      chrome.storage.local.set({ [ATTENDANCE_TARGET_KEY]: targetTime }, function() {
-        updateAttendanceTimer();
+      safeStorageSet({ [ATTENDANCE_TARGET_KEY]: targetTime }, function() {
+        if (updateAttendanceTimer) updateAttendanceTimer();
       });
       return;
     }
@@ -804,8 +882,8 @@
     if (match) {
       const totalSeconds = parseInt(match[1]) * 3600;
       const targetTime = Date.now() + (totalSeconds * 1000);
-      chrome.storage.local.set({ [ATTENDANCE_TARGET_KEY]: targetTime }, function() {
-        updateAttendanceTimer();
+      safeStorageSet({ [ATTENDANCE_TARGET_KEY]: targetTime }, function() {
+        if (updateAttendanceTimer) updateAttendanceTimer();
       });
       return;
     }
@@ -815,11 +893,11 @@
       if (message.includes('포인트') && (message.includes('적립') || message.includes('감사') || message.includes('획득'))) {
         // 포인트를 받았으므로 24시간 후를 목표 시간으로 설정
         const targetTime = Date.now() + (ATTENDANCE_TIME * 1000);
-        chrome.storage.local.set({
+        safeStorageSet({
           [ATTENDANCE_KEY]: Date.now(),
           [ATTENDANCE_TARGET_KEY]: targetTime
         }, function() {
-          updateAttendanceTimer();
+          if (updateAttendanceTimer) updateAttendanceTimer();
         });
       }
     }
@@ -828,7 +906,9 @@
 
   function checkAttendanceSuccess() {
     // 기존에 저장된 시간 확인
-    chrome.storage.local.get([ATTENDANCE_KEY], function(result) {
+    safeStorageGet([ATTENDANCE_KEY], function(result) {
+      if (!result) return;
+
       const existingLastTime = result[ATTENDANCE_KEY];
 
       // 포인트 획득 성공 메시지가 있는지 확인
@@ -842,12 +922,12 @@
         // 포인트를 받았으므로 24시간 타이머 초기화
         const now = Date.now();
         const targetTime = now + (ATTENDANCE_TIME * 1000);
-        chrome.storage.local.set({
+        safeStorageSet({
           [ATTENDANCE_KEY]: now,
           [ATTENDANCE_TARGET_KEY]: targetTime
         }, function() {
           console.log('포인트 수령 완료 - 24시간 타이머 초기화');
-          updateAttendanceTimer();
+          if (updateAttendanceTimer) updateAttendanceTimer();
         });
       }
     });
@@ -874,7 +954,9 @@
 
   // 타이머 위치 복원
   function restoreTimerPosition(element) {
-    chrome.storage.local.get([POSITION_STORAGE_KEY], function(result) {
+    safeStorageGet([POSITION_STORAGE_KEY], function(result) {
+      if (!result) return;
+
       const positions = result[POSITION_STORAGE_KEY];
       if (positions && positions[element.id]) {
         const pos = positions[element.id];
@@ -888,7 +970,9 @@
 
   // 타이머 위치 저장
   function saveTimerPosition(element) {
-    chrome.storage.local.get([POSITION_STORAGE_KEY], function(result) {
+    safeStorageGet([POSITION_STORAGE_KEY], function(result) {
+      if (!result) return;
+
       const positions = result[POSITION_STORAGE_KEY] || {};
       const rect = element.getBoundingClientRect();
 
@@ -897,13 +981,13 @@
         top: element.style.top
       };
 
-      chrome.storage.local.set({ [POSITION_STORAGE_KEY]: positions });
+      safeStorageSet({ [POSITION_STORAGE_KEY]: positions });
     });
   }
 
   // 모든 타이머 위치 초기화
   function resetAllTimerPositions() {
-    chrome.storage.local.remove(POSITION_STORAGE_KEY, function() {
+    safeStorageRemove(POSITION_STORAGE_KEY, function() {
       // 각 타이머를 기본 위치로 복원
       if (timerElement) {
         timerElement.style.left = 'auto';
@@ -1242,7 +1326,9 @@
     }
 
     // 현재 쿨다운 중인지 확인
-    chrome.storage.local.get([STORAGE_KEY], function(result) {
+    safeStorageGet([STORAGE_KEY], function(result) {
+      if (!result) return;
+
       const lastCommentTime = result[STORAGE_KEY];
       const checkTime = Date.now();
 
@@ -1258,7 +1344,7 @@
 
       // 새로운 댓글 시간 저장
       console.log('댓글 작성 감지 - 타이머 시작');
-      chrome.storage.local.set({ [STORAGE_KEY]: checkTime }, function() {
+      safeStorageSet({ [STORAGE_KEY]: checkTime }, function() {
         startCooldown(COOLDOWN_TIME);
       });
     });
@@ -1267,7 +1353,12 @@
   // 메시지 리스너
   chrome.runtime.onMessage.addListener(function(request, _sender, sendResponse) {
     if (request.action === 'getCooldownStatus') {
-      chrome.storage.local.get([STORAGE_KEY], function(result) {
+      safeStorageGet([STORAGE_KEY], function(result) {
+        if (!result) {
+          sendResponse({ success: false, error: 'Extension context invalidated' });
+          return;
+        }
+
         const lastCommentTime = result[STORAGE_KEY];
         let status = { inCooldown: false, remaining: 0 };
 
@@ -1287,7 +1378,7 @@
     }
 
     if (request.action === 'resetCooldown') {
-      chrome.storage.local.remove(STORAGE_KEY, function() {
+      safeStorageRemove(STORAGE_KEY, function() {
         if (cooldownInterval) {
           clearInterval(cooldownInterval);
           cooldownInterval = null;
@@ -1306,7 +1397,7 @@
       // 실제 시간에서 (COOLDOWN_TIME - testDuration)초 전으로 설정
       const now = Date.now();
       const adjustedTime = now - ((COOLDOWN_TIME - testDuration) * 1000);
-      chrome.storage.local.set({ [STORAGE_KEY]: adjustedTime }, function() {
+      safeStorageSet({ [STORAGE_KEY]: adjustedTime }, function() {
         startCooldown(testDuration);
       });
 
@@ -1314,83 +1405,85 @@
       return true;
     }
 
-    if (request.action === 'updateEnabled') {
-      // 활성화 상태 업데이트
-      isExtensionEnabled = request.enabled;
+    if (request.action === 'updateTimerVisibility') {
+      // 개별 타이머 활성화/비활성화
+      const { timerType, enabled } = request;
+      timerEnabled[timerType] = enabled;
 
-      if (isExtensionEnabled) {
-        // 현재 모드 확인
-        chrome.storage.sync.get(['timerMode'], function(result) {
-          const isCompact = (result.timerMode || 'normal') === 'compact';
+      // 현재 모드 확인
+      chrome.storage.sync.get(['timerMode'], function(result) {
+        const isCompact = (result.timerMode || 'normal') === 'compact';
 
-          // 활성화: 모든 타이머 표시
-          if (!timerElement) {
-            createTimerUI(isCompact);
+        if (timerType === 'comment') {
+          if (enabled) {
+            // 댓글 타이머 활성화
+            if (!timerElement) {
+              createTimerUI(isCompact);
+              checkCooldownStatus();
+              observeCommentForms();
+            } else {
+              timerElement.style.display = 'flex';
+              if (!cooldownInterval) {
+                checkCooldownStatus();
+              }
+            }
           } else {
-            timerElement.style.display = 'flex';
+            // 댓글 타이머 비활성화
+            if (cooldownInterval) {
+              clearInterval(cooldownInterval);
+              cooldownInterval = null;
+            }
+            if (timerElement) {
+              timerElement.style.display = 'none';
+            }
           }
-
-          if (!pointTimerElement) {
-            createPointTimerUI(isCompact);
+        } else if (timerType === 'point') {
+          if (enabled) {
+            // 성좌 타이머 활성화
+            if (!pointTimerElement) {
+              createPointTimerUI(isCompact);
+              startPointTimer();
+            } else {
+              pointTimerElement.style.display = 'flex';
+              if (!pointTimerInterval) {
+                startPointTimer();
+              }
+            }
           } else {
-            pointTimerElement.style.display = 'flex';
+            // 성좌 타이머 비활성화
+            if (pointTimerInterval) {
+              clearInterval(pointTimerInterval);
+              pointTimerInterval = null;
+            }
+            if (pointTimerElement) {
+              pointTimerElement.style.display = 'none';
+            }
           }
-
-          if (!attendanceTimerElement) {
-            createAttendanceTimerUI(isCompact);
+        } else if (timerType === 'attendance') {
+          if (enabled) {
+            // 무료포 타이머 활성화
+            if (!attendanceTimerElement) {
+              createAttendanceTimerUI(isCompact);
+              startAttendanceTimer();
+              observeAttendanceLink();
+            } else {
+              attendanceTimerElement.style.display = 'flex';
+              if (!attendanceTimerInterval) {
+                startAttendanceTimer();
+              }
+            }
           } else {
-            attendanceTimerElement.style.display = 'flex';
+            // 무료포 타이머 비활성화
+            if (attendanceTimerInterval) {
+              clearInterval(attendanceTimerInterval);
+              attendanceTimerInterval = null;
+            }
+            if (attendanceTimerElement) {
+              attendanceTimerElement.style.display = 'none';
+            }
           }
-        });
-
-        // 타이머 상태 확인 및 시작
-        checkCooldownStatus();
-
-        if (!pointTimerInterval) {
-          startPointTimer();
         }
-
-        if (!attendanceTimerInterval) {
-          startAttendanceTimer();
-        }
-      } else {
-        // 비활성화: 모든 타이머 숨김
-        if (cooldownInterval) {
-          clearInterval(cooldownInterval);
-          cooldownInterval = null;
-        }
-        if (timerElement) {
-          timerElement.style.display = 'none';
-        }
-
-        if (pointTimerInterval) {
-          clearInterval(pointTimerInterval);
-          pointTimerInterval = null;
-        }
-        if (pointTimerElement) {
-          pointTimerElement.style.display = 'none';
-        }
-
-        if (attendanceTimerInterval) {
-          clearInterval(attendanceTimerInterval);
-          attendanceTimerInterval = null;
-        }
-        if (attendanceTimerElement) {
-          attendanceTimerElement.style.display = 'none';
-        }
-      }
-
-      sendResponse({ success: true });
-      return true;
-    }
-
-    if (request.action === 'updatePointInterval') {
-      // 포인트 간격 업데이트
-      console.log('[EnterJoy] 🔄 성좌 출현시간 변경:', pointInterval, '분 →', request.interval, '분');
-      pointInterval = request.interval;
-
-      // 타이머 즉시 재계산
-      updatePointTimer();
+      });
 
       sendResponse({ success: true });
       return true;

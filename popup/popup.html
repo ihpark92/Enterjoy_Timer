@@ -9,35 +9,41 @@
 <body>
   <div class="container">
     <h1>엔쪼 알리미</h1>
-    <p class="subtitle">v0.92</p>
-
-    <div class="toggle-section">
-      <div class="toggle-container">
-        <label class="toggle-label">
-          <span>확장프로그램 활성화</span>
-          <div class="toggle-switch">
-            <input type="checkbox" id="enableToggle" checked>
-            <span class="toggle-slider"></span>
-          </div>
-        </label>
-      </div>
-    </div>
+    <p class="subtitle">v0.93</p>
 
     <div class="settings-section">
-      <div class="interval-options">
-        <span class="settings-label">성좌 출현시간</span>
-        <div class="interval-row">
-          <label class="interval-option">
-            <input type="radio" name="pointInterval" value="10">
-            <span>10분</span>
+      <div class="timer-toggle-section">
+        <span class="settings-label">타이머 활성화</span>
+        <div class="timer-toggle-list">
+          <label class="timer-toggle-item">
+            <div class="timer-toggle-label">
+              <span class="timer-icon">💬</span>
+              <span>댓글 타이머</span>
+            </div>
+            <div class="toggle-switch">
+              <input type="checkbox" id="timerCommentToggle" checked>
+              <span class="toggle-slider"></span>
+            </div>
           </label>
-          <label class="interval-option">
-            <input type="radio" name="pointInterval" value="20">
-            <span>20분</span>
+          <label class="timer-toggle-item">
+            <div class="timer-toggle-label">
+              <span class="timer-icon">🎁</span>
+              <span>성좌 타이머</span>
+            </div>
+            <div class="toggle-switch">
+              <input type="checkbox" id="timerPointToggle" checked>
+              <span class="toggle-slider"></span>
+            </div>
           </label>
-          <label class="interval-option">
-            <input type="radio" name="pointInterval" value="30" checked>
-            <span>30분</span>
+          <label class="timer-toggle-item">
+            <div class="timer-toggle-label">
+              <span class="timer-icon">💰</span>
+              <span>무료포 타이머</span>
+            </div>
+            <div class="toggle-switch">
+              <input type="checkbox" id="timerAttendanceToggle" checked>
+              <span class="toggle-slider"></span>
+            </div>
           </label>
         </div>
       </div>
