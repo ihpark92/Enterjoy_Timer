@@ -557,10 +557,7 @@
       countdownElement.textContent = display;
     }
 
-    // 포인트 수집 시간이 되었을 때
-    if (remainingSeconds === 0) {
-      showPointReadyNotification();
-    }
+    // 포인트 수집 시간이 되었을 때 (배너 알림 제거됨)
 
     // 10초 이하일 때 경고 색상
     if (remainingSeconds <= 10 && remainingSeconds > 0) {
@@ -573,22 +570,6 @@
     }
   }
 
-  function showPointReadyNotification() {
-    // 짧은 알림 배너 표시
-    const banner = document.createElement('div');
-    banner.className = 'enterjoy-ready-banner enterjoy-point-banner';
-    banner.textContent = '🎁 포인트 수집 가능!';
-    document.body.appendChild(banner);
-
-    setTimeout(() => {
-      banner.classList.add('enterjoy-banner-show');
-    }, 10);
-
-    setTimeout(() => {
-      banner.classList.remove('enterjoy-banner-show');
-      setTimeout(() => banner.remove(), 300);
-    }, 5000); // 5초간 표시
-  }
 
   // ========== 타이머 만료 알림 처리 ==========
 
@@ -612,10 +593,7 @@
         startTabNotification();
       }
     } else {
-      // 활성 탭 → 배너 표시 (시각적 알림이 활성화된 경우만)
-      if (visualAlertsEnabled) {
-        showPointReadyNotification();
-      }
+      // 활성 탭 → Badge 깜빡임 중지만 수행 (배너 제거됨)
       chrome.runtime.sendMessage({ action: 'stopBadgeFlashing' });
     }
   }
@@ -647,10 +625,7 @@
         stopTabNotification();
         document.removeEventListener('visibilitychange', stopOnVisible);
 
-        // 활성화 시 배너 표시
-        showPointReadyNotification();
-
-        // Badge 깜빡임 중지 요청
+        // Badge 깜빡임 중지 요청 (배너 제거됨)
         chrome.runtime.sendMessage({ action: 'stopBadgeFlashing' });
       }
     };

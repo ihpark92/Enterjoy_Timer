@@ -174,10 +174,13 @@ async function onPointTimerExpired() {
         for (const tabId of tabIds) {
           try {
             const tab = await chrome.tabs.get(tabId);
-            // 탭이 활성화되어 있으면 (해당 윈도우에서 현재 보고 있는 탭)
-            if (tab.active) {
-              isEnterjoyTabActive = true;
-              break;
+            // 탭이 활성화되어 있고, 윈도우도 포커스되어 있으면 (사용자가 실제로 보고 있음)
+            if (tab.active && tab.windowId) {
+              const window = await chrome.windows.get(tab.windowId);
+              if (window.focused) {
+                isEnterjoyTabActive = true;
+                break;
+              }
             }
           } catch (error) {
             // 탭이 없으면 무시
