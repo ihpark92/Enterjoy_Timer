@@ -162,39 +162,63 @@ async function onPointTimerExpired() {
     const systemNotifEnabled = result.pointNotification_system !== false;
     const visualAlertsEnabled = result.pointNotification_visual !== false;
 
-    // 시스템 알림
-    if (systemNotifEnabled) {
-      // 아이콘 로드
-      const iconDataUrl = await loadNotificationIcon();
+    // enterjoy 탭이 활성화되어 있는지 확인
+    chrome.storage.local.get([ENTERJOY_TABS_KEY], async (storageResult) => {
+      const tabIds = storageResult[ENTERJOY_TABS_KEY] || [];
 
-      if (iconDataUrl) {
-        // 시스템 알림 생성 (data URL 사용)
-        chrome.notifications.create({
-          type: 'basic',
-          iconUrl: iconDataUrl,
-          title: '🎁 성좌님 출현!',
-          message: '포인트를 수집할 시간입니다. 클릭하여 enterjoy로 이동하세요.',
-          priority: 2,
-          requireInteraction: true  // 사용자가 클릭할 때까지 유지
-        }, (notificationId) => {
-          if (!chrome.runtime.lastError) {
-            // 1분(60000ms) 후 자동으로 알림 제거
-            setTimeout(() => {
-              chrome.notifications.clear(notificationId);
-            }, 60000); // 60초 = 1분
+      // enterjoy 탭이 활성화되어 있는지 확인
+      let isEnterjoyTabActive = false;
+
+      if (tabIds.length > 0) {
+        // 모든 enterjoy 탭 확인
+        for (const tabId of tabIds) {
+          try {
+            const tab = await chrome.tabs.get(tabId);
+            // 탭이 활성화되어 있으면 (해당 윈도우에서 현재 보고 있는 탭)
+            if (tab.active) {
+              isEnterjoyTabActive = true;
+              break;
+            }
+          } catch (error) {
+            // 탭이 없으면 무시
           }
-        });
+        }
       }
-    }
 
-    // 시각적 알림 (Badge 깜빡임)
-    if (visualAlertsEnabled) {
-      startBadgeFlashing();
-    }
+      // enterjoy 탭이 활성화되어 있지 않을 때만 시스템 알림과 Badge 표시
+      if (!isEnterjoyTabActive) {
+        // 시스템 알림
+        if (systemNotifEnabled) {
+          // 아이콘 로드
+          const iconDataUrl = await loadNotificationIcon();
 
-    // storage에서 enterjoy 탭 ID 로드 후 메시지 전송 (시각적 알림 설정 포함)
-    chrome.storage.local.get([ENTERJOY_TABS_KEY], (result) => {
-      const tabIds = result[ENTERJOY_TABS_KEY] || [];
+          if (iconDataUrl) {
+            // 시스템 알림 생성 (data URL 사용)
+            chrome.notifications.create({
+              type: 'basic',
+              iconUrl: iconDataUrl,
+              title: '🎁 성좌님 출현!',
+              message: '포인트를 수집할 시간입니다. 클릭하여 enterjoy로 이동하세요.',
+              priority: 2,
+              requireInteraction: true  // 사용자가 클릭할 때까지 유지
+            }, (notificationId) => {
+              if (!chrome.runtime.lastError) {
+                // 1분(60000ms) 후 자동으로 알림 제거
+                setTimeout(() => {
+                  chrome.notifications.clear(notificationId);
+                }, 60000); // 60초 = 1분
+              }
+            });
+          }
+        }
+
+        // 시각적 알림 (Badge 깜빡임)
+        if (visualAlertsEnabled) {
+          startBadgeFlashing();
+        }
+      }
+
+      // storage에서 enterjoy 탭 ID 로드 후 메시지 전송 (시각적 알림 설정 포함)
       if (tabIds.length === 0) return;
 
       tabIds.forEach((tabId) => {
