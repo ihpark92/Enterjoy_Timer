@@ -95,14 +95,79 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
   return true;
 });
 
-// 탭 업데이트 이벤트 감지
+// 탭 제거 이벤트 감지 (enterjoy 탭이 닫힐 때)
+chrome.tabs.onRemoved.addListener(function(tabId, removeInfo) {
+  chrome.storage.local.get([ENTERJOY_TABS_KEY], (result) => {
+    const tabIds = result[ENTERJOY_TABS_KEY] || [];
+
+    if (tabIds.includes(tabId)) {
+      // 닫힌 탭을 목록에서 제거
+      const updatedTabIds = tabIds.filter(id => id !== tabId);
+      chrome.storage.local.set({ [ENTERJOY_TABS_KEY]: updatedTabIds });
+
+      // 모든 enterjoy 탭이 닫혔으면 알람 중지
+      if (updatedTabIds.length === 0) {
+        stopPointAlarm();
+      }
+    }
+  });
+});
+
+// 탭 URL 변경 이벤트 감지 (enterjoy에서 다른 사이트로 이동)
 chrome.tabs.onUpdated.addListener(function(tabId, changeInfo, tab) {
-  if (changeInfo.status === 'complete') {
-    // 탭 로드 완료
+  if (changeInfo.url) {
+    chrome.storage.local.get([ENTERJOY_TABS_KEY], (result) => {
+      const tabIds = result[ENTERJOY_TABS_KEY] || [];
+
+      // enterjoy 탭 목록에 있는데 URL이 enterjoy가 아니면 제거
+      if (tabIds.includes(tabId) && !changeInfo.url.includes('enterjoy.day')) {
+        const updatedTabIds = tabIds.filter(id => id !== tabId);
+        chrome.storage.local.set({ [ENTERJOY_TABS_KEY]: updatedTabIds });
+
+        // 모든 enterjoy 탭이 없어졌으면 알람 중지
+        if (updatedTabIds.length === 0) {
+          stopPointAlarm();
+        }
+      }
+    });
   }
 });
 
 // ========== 성좌 타이머 함수들 ==========
+
+// 유효한 enterjoy 탭이 있는지 확인하는 함수
+async function hasValidEnterjoyTabs(tabIds) {
+  if (!tabIds || tabIds.length === 0) {
+    return false;
+  }
+
+  const validTabIds = [];
+
+  for (const tabId of tabIds) {
+    try {
+      const tab = await chrome.tabs.get(tabId);
+      // 탭이 존재하고 URL이 enterjoy.day를 포함하는지 확인
+      if (tab && tab.url && tab.url.includes('enterjoy.day')) {
+        validTabIds.push(tabId);
+      }
+    } catch (error) {
+      // 탭이 존재하지 않거나 오류 발생 시 무시
+    }
+  }
+
+  // 유효한 탭 목록으로 업데이트
+  if (validTabIds.length !== tabIds.length) {
+    chrome.storage.local.set({ [ENTERJOY_TABS_KEY]: validTabIds });
+  }
+
+  // 유효한 탭이 하나도 없으면 알람 중지
+  if (validTabIds.length === 0) {
+    stopPointAlarm();
+    return false;
+  }
+
+  return true;
+}
 
 // 성좌 타이머 시작
 function startPointAlarm() {
@@ -166,12 +231,23 @@ async function onPointTimerExpired() {
     chrome.storage.local.get([ENTERJOY_TABS_KEY], async (storageResult) => {
       const tabIds = storageResult[ENTERJOY_TABS_KEY] || [];
 
+      // 유효한 enterjoy 탭이 있는지 먼저 확인
+      const hasValidTabs = await hasValidEnterjoyTabs(tabIds);
+      if (!hasValidTabs) {
+        // 유효한 탭이 없으면 알람이 이미 중지되었으므로 종료
+        return;
+      }
+
+      // 유효성 검증 후 최신 탭 목록 다시 가져오기
+      const updatedResult = await chrome.storage.local.get([ENTERJOY_TABS_KEY]);
+      const validTabIds = updatedResult[ENTERJOY_TABS_KEY] || [];
+
       // enterjoy 탭이 활성화되어 있는지 확인
       let isEnterjoyTabActive = false;
 
-      if (tabIds.length > 0) {
-        // 모든 enterjoy 탭 확인
-        for (const tabId of tabIds) {
+      if (validTabIds.length > 0) {
+        // 모든 유효한 enterjoy 탭 확인
+        for (const tabId of validTabIds) {
           try {
             const tab = await chrome.tabs.get(tabId);
             // 탭이 활성화되어 있고, 윈도우도 포커스되어 있으면 (사용자가 실제로 보고 있음)
@@ -188,8 +264,8 @@ async function onPointTimerExpired() {
         }
       }
 
-      // enterjoy 탭이 활성화되어 있지 않을 때만 시스템 알림과 Badge 표시
-      if (!isEnterjoyTabActive) {
+      // enterjoy 탭이 존재하고 활성화되어 있지 않을 때만 시스템 알림과 Badge 표시
+      if (!isEnterjoyTabActive && validTabIds.length > 0) {
         // 시스템 알림
         if (systemNotifEnabled) {
           // 아이콘 로드
@@ -222,9 +298,9 @@ async function onPointTimerExpired() {
       }
 
       // storage에서 enterjoy 탭 ID 로드 후 메시지 전송 (시각적 알림 설정 포함)
-      if (tabIds.length === 0) return;
+      if (validTabIds.length === 0) return;
 
-      tabIds.forEach((tabId) => {
+      validTabIds.forEach((tabId) => {
         chrome.tabs.sendMessage(tabId, {
           action: 'pointTimerExpired',
           visualAlertsEnabled: visualAlertsEnabled

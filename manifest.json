@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "엔쪼 알리미",
-  "version": "0.941",
+  "version": "0.942",
   "description": "enterjoy.day 댓글 작성 쿨다운 타이머 - 시스템 알림 지원",
   "author": "EnterJoy",
   "browser_specific_settings": {
