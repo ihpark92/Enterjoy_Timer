@@ -596,7 +596,8 @@
   function setupTimerExpiredListener() {
     chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       if (request.action === 'pointTimerExpired') {
-        handlePointTimerExpired();
+        const visualAlertsEnabled = request.visualAlertsEnabled !== false; // 기본값: true
+        handlePointTimerExpired(visualAlertsEnabled);
         sendResponse({ success: true });
       }
       return false;
@@ -604,13 +605,17 @@
   }
 
   // 타이머 만료 시 처리
-  function handlePointTimerExpired() {
+  function handlePointTimerExpired(visualAlertsEnabled) {
     if (document.hidden) {
-      // 비활성 탭 → 제목 깜빡임
-      startTabNotification();
+      // 비활성 탭 → 제목 깜빡임 (시각적 알림이 활성화된 경우만)
+      if (visualAlertsEnabled) {
+        startTabNotification();
+      }
     } else {
-      // 활성 탭 → 배너 표시
-      showPointReadyNotification();
+      // 활성 탭 → 배너 표시 (시각적 알림이 활성화된 경우만)
+      if (visualAlertsEnabled) {
+        showPointReadyNotification();
+      }
       chrome.runtime.sendMessage({ action: 'stopBadgeFlashing' });
     }
   }

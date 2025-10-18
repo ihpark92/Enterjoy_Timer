@@ -24,17 +24,14 @@ let cachedNotificationIcon = null;
 // PNG 파일을 data URL로 변환
 async function loadNotificationIcon() {
   if (cachedNotificationIcon) {
-    console.log('[Icon] Using cached icon');
     return cachedNotificationIcon;
   }
 
   try {
-    console.log('[Icon] Loading PNG file...');
     const url = chrome.runtime.getURL('icons/notification-icon.png');
     const response = await fetch(url);
     const blob = await response.blob();
 
-    console.log('[Icon] Converting to data URL...');
     const dataUrl = await new Promise((resolve) => {
       const reader = new FileReader();
       reader.onloadend = () => resolve(reader.result);
@@ -42,10 +39,8 @@ async function loadNotificationIcon() {
     });
 
     cachedNotificationIcon = dataUrl;
-    console.log('[Icon] Icon loaded and cached, size:', dataUrl.length, 'chars');
     return dataUrl;
   } catch (error) {
-    console.error('[Icon] Failed to load icon:', error);
     return null;
   }
 }
@@ -154,72 +149,61 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 
 // 타이머 만료 시 처리
 async function onPointTimerExpired() {
-  // 타이머 활성화 상태 확인
-  chrome.storage.sync.get(['timerEnabled_point'], async (result) => {
+  // 타이머 활성화 상태 및 알림 설정 확인
+  chrome.storage.sync.get([
+    'timerEnabled_point',
+    'pointNotification_system',
+    'pointNotification_visual'
+  ], async (result) => {
     const pointTimerEnabled = result.timerEnabled_point !== false;
     if (!pointTimerEnabled) return;
 
-    console.log('[Timer] Point timer expired');
+    // 기본값: 모두 활성화
+    const systemNotifEnabled = result.pointNotification_system !== false;
+    const visualAlertsEnabled = result.pointNotification_visual !== false;
 
-    // 아이콘 로드
-    const iconDataUrl = await loadNotificationIcon();
+    // 시스템 알림
+    if (systemNotifEnabled) {
+      // 아이콘 로드
+      const iconDataUrl = await loadNotificationIcon();
 
-    if (!iconDataUrl) {
-      console.error('[Notification] No icon available, skipping notification');
-      return;
+      if (iconDataUrl) {
+        // 시스템 알림 생성 (data URL 사용)
+        chrome.notifications.create({
+          type: 'basic',
+          iconUrl: iconDataUrl,
+          title: '🎁 성좌님 출현!',
+          message: '포인트를 수집할 시간입니다. 클릭하여 enterjoy로 이동하세요.',
+          priority: 2,
+          requireInteraction: true  // 사용자가 클릭할 때까지 유지
+        }, (notificationId) => {
+          if (!chrome.runtime.lastError) {
+            // 1분(60000ms) 후 자동으로 알림 제거
+            setTimeout(() => {
+              chrome.notifications.clear(notificationId);
+            }, 60000); // 60초 = 1분
+          }
+        });
+      }
     }
 
-    // 시스템 알림 생성 (data URL 사용)
-    console.log('[Notification] Creating notification with data URL icon');
-    chrome.notifications.create({
-      type: 'basic',
-      iconUrl: iconDataUrl,
-      title: '🎁 성좌님 출현!',
-      message: '포인트를 수집할 시간입니다. 클릭하여 enterjoy로 이동하세요.',
-      priority: 2,
-      requireInteraction: true  // 사용자가 클릭할 때까지 유지
-    }, (notificationId) => {
-      if (chrome.runtime.lastError) {
-        console.error('[Notification] Creation failed:', chrome.runtime.lastError);
-      } else {
-        const createdTime = new Date();
-        console.log('[Notification] Created successfully with ID:', notificationId);
-        console.log('[Notification] Created at:', createdTime.toLocaleTimeString());
-        console.log('[Notification] Will auto-clear at:', new Date(createdTime.getTime() + 60000).toLocaleTimeString());
+    // 시각적 알림 (Badge 깜빡임)
+    if (visualAlertsEnabled) {
+      startBadgeFlashing();
+    }
 
-        // 1분(60000ms) 후 자동으로 알림 제거
-        setTimeout(() => {
-          const clearedTime = new Date();
-          chrome.notifications.clear(notificationId, (wasCleared) => {
-            if (wasCleared) {
-              const elapsedSeconds = Math.round((clearedTime - createdTime) / 1000);
-              console.log('[Notification] Auto-cleared at:', clearedTime.toLocaleTimeString());
-              console.log('[Notification] Elapsed time:', elapsedSeconds, 'seconds');
-            }
-          });
-        }, 60000); // 60초 = 1분
-      }
-    });
-
-    // Badge 깜빡임 시작
-    startBadgeFlashing();
-
-    // storage에서 enterjoy 탭 ID 로드 후 메시지 전송
+    // storage에서 enterjoy 탭 ID 로드 후 메시지 전송 (시각적 알림 설정 포함)
     chrome.storage.local.get([ENTERJOY_TABS_KEY], (result) => {
       const tabIds = result[ENTERJOY_TABS_KEY] || [];
-      if (tabIds.length === 0) {
-        console.log('[Timer] No enterjoy tabs found');
-        return;
-      }
+      if (tabIds.length === 0) return;
 
-      console.log('[Timer] Sending message to', tabIds.length, 'tab(s)');
       tabIds.forEach((tabId) => {
         chrome.tabs.sendMessage(tabId, {
-          action: 'pointTimerExpired'
+          action: 'pointTimerExpired',
+          visualAlertsEnabled: visualAlertsEnabled
         }).catch((error) => {
           // "Receiving end does not exist" 오류만 탭 제거 (탭이 닫힌 경우)
           if (error.message && error.message.includes('Receiving end does not exist')) {
-            console.log('[Timer] Tab', tabId, 'not found, removing from list');
             chrome.storage.local.get([ENTERJOY_TABS_KEY], (r) => {
               const ids = r[ENTERJOY_TABS_KEY] || [];
               const filtered = ids.filter(id => id !== tabId);
@@ -276,8 +260,6 @@ function stopBadgeFlashing() {
 
 // 알림 클릭 시 enterjoy 탭으로 이동
 chrome.notifications.onClicked.addListener((notificationId) => {
-  console.log('[Notification] Clicked:', notificationId);
-
   // 알림 제거
   chrome.notifications.clear(notificationId);
 
@@ -289,11 +271,9 @@ chrome.notifications.onClicked.addListener((notificationId) => {
     const tabIds = result[ENTERJOY_TABS_KEY] || [];
 
     if (tabIds.length > 0) {
-      console.log('[Notification] Switching to enterjoy tab:', tabIds[0]);
       // 첫 번째 enterjoy 탭으로 이동
       chrome.tabs.update(tabIds[0], { active: true }, () => {
         if (chrome.runtime.lastError) {
-          console.log('[Notification] Tab not found, opening new tab');
           // 탭이 이미 닫혔으면 새 탭 생성
           chrome.tabs.create({ url: 'https://enterjoy.day' });
         } else {
@@ -306,7 +286,6 @@ chrome.notifications.onClicked.addListener((notificationId) => {
         }
       });
     } else {
-      console.log('[Notification] No enterjoy tabs, opening new tab');
       // enterjoy 탭이 없으면 새로 생성
       chrome.tabs.create({ url: 'https://enterjoy.day' });
     }

@@ -3,6 +3,9 @@ document.addEventListener('DOMContentLoaded', function() {
   const timerCommentToggle = document.getElementById('timerCommentToggle');
   const timerPointToggle = document.getElementById('timerPointToggle');
   const timerAttendanceToggle = document.getElementById('timerAttendanceToggle');
+  const pointNotificationSystem = document.getElementById('pointNotificationSystem');
+  const pointNotificationVisual = document.getElementById('pointNotificationVisual');
+  const pointNotificationOptions = document.getElementById('pointNotificationOptions');
   const themeOptions = document.getElementsByName('theme');
   const timerModeOptions = document.getElementsByName('timerMode');
   const resetPositionBtn = document.getElementById('resetPositionBtn');
@@ -10,6 +13,7 @@ document.addEventListener('DOMContentLoaded', function() {
   // 초기 상태 불러오기
   migrateOldSettings(); // 기존 설정 마이그레이션
   loadTimerToggles();
+  loadNotificationSettings();
   loadThemeSetting();
   loadTimerModeSetting();
 
@@ -28,11 +32,33 @@ document.addEventListener('DOMContentLoaded', function() {
   timerPointToggle.addEventListener('change', function() {
     const isEnabled = timerPointToggle.checked;
 
+    // 하위 옵션 활성화/비활성화
+    updateSubOptionsState();
+
     // 설정 저장
     chrome.storage.sync.set({ timerEnabled_point: isEnabled }, function() {
       // 현재 탭에 메시지 전송
       sendTimerToggleMessage('point', isEnabled);
+
+      // background script에도 알림 (타이머 시작/중지)
+      if (isEnabled) {
+        chrome.runtime.sendMessage({ action: 'startPointTimer' });
+      } else {
+        chrome.runtime.sendMessage({ action: 'stopPointTimer' });
+      }
     });
+  });
+
+  // 시스템 알림 토글
+  pointNotificationSystem.addEventListener('change', function() {
+    const isEnabled = pointNotificationSystem.checked;
+    chrome.storage.sync.set({ pointNotification_system: isEnabled });
+  });
+
+  // 시각적 알림 토글
+  pointNotificationVisual.addEventListener('change', function() {
+    const isEnabled = pointNotificationVisual.checked;
+    chrome.storage.sync.set({ pointNotification_visual: isEnabled });
   });
 
   // 무료포 타이머 토글
@@ -183,7 +209,31 @@ document.addEventListener('DOMContentLoaded', function() {
       timerCommentToggle.checked = result.timerEnabled_comment !== false;
       timerPointToggle.checked = result.timerEnabled_point !== false;
       timerAttendanceToggle.checked = result.timerEnabled_attendance !== false;
+
+      // 하위 옵션 상태 업데이트
+      updateSubOptionsState();
     });
+  }
+
+  // 알림 설정 불러오기
+  function loadNotificationSettings() {
+    chrome.storage.sync.get([
+      'pointNotification_system',
+      'pointNotification_visual'
+    ], function(result) {
+      // 기본값: 모두 활성화
+      pointNotificationSystem.checked = result.pointNotification_system !== false;
+      pointNotificationVisual.checked = result.pointNotification_visual !== false;
+    });
+  }
+
+  // 하위 옵션 활성화/비활성화 상태 업데이트
+  function updateSubOptionsState() {
+    if (timerPointToggle.checked) {
+      pointNotificationOptions.classList.remove('disabled');
+    } else {
+      pointNotificationOptions.classList.add('disabled');
+    }
   }
 
   function loadThemeSetting() {
