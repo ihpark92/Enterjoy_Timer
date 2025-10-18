@@ -60,9 +60,7 @@ document.addEventListener('DOMContentLoaded', function() {
               action: 'updateTheme',
               theme: theme
             }, function() {
-              if (chrome.runtime.lastError) {
-                console.log('Content script not loaded yet');
-              }
+              // 오류 무시
             });
           }
         });
@@ -84,9 +82,7 @@ document.addEventListener('DOMContentLoaded', function() {
               action: 'updateTimerMode',
               mode: mode
             }, function() {
-              if (chrome.runtime.lastError) {
-                console.log('Content script not loaded yet');
-              }
+              // 오류 무시
             });
           }
         });
@@ -108,7 +104,6 @@ document.addEventListener('DOMContentLoaded', function() {
           action: 'resetTimerPositions'
         }, function(response) {
           if (chrome.runtime.lastError) {
-            console.log('Content script not loaded yet');
             resetPositionBtn.textContent = '페이지를 새로고침 해주세요';
             setTimeout(() => {
               resetPositionBtn.textContent = originalText;
@@ -141,9 +136,7 @@ document.addEventListener('DOMContentLoaded', function() {
           timerType: timerType,
           enabled: isEnabled
         }, function() {
-          if (chrome.runtime.lastError) {
-            console.log('Content script not loaded yet');
-          }
+          // 오류 무시
         });
       }
     });
@@ -175,7 +168,6 @@ document.addEventListener('DOMContentLoaded', function() {
       // 설정 저장 및 구 설정 제거
       chrome.storage.sync.set(updates, function() {
         chrome.storage.sync.remove(['enabled', 'pointInterval']);
-        console.log('Settings migrated successfully');
       });
     });
   }

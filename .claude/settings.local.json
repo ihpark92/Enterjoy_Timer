@@ -1,7 +1,19 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git add:*)"
+      "Bash(git push:*)",
+      "Bash(where npx)",
+      "Bash(claude mcp add:*)",
+      "Bash(claude mcp:*)",
+      "Bash(npx:*)",
+      "Read(//c/Users/ihpark/**)",
+      "Bash(findstr:*)",
+      "Bash(npm install:*)",
+      "Bash(npm config:*)",
+      "mcp__sequential-thinking__sequentialthinking",
+      "Bash(rm:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nv0.94: Add enhanced point timer notifications\n\n## Changes\n- Strengthen point timer notification with multi-layered visual alerts\n  - Extension icon badge flashing (🎁, 1 sec interval)\n  - enterjoy tab title flashing (\"🎁🎁🎁 성좌 출현! 클릭하세요! 🎁🎁🎁\", 1.5 sec interval)\n  - Auto-stop after 60 seconds or on tab activation\n- Use chrome.alarms API for accurate 30-minute timers\n  - Ensures timer works even when tab is inactive\n  - Battery-efficient timer management\n- Add ''alarms'' permission to manifest.json\n- Remove all console.log debug statements\n- Update README.md with v0.94 features\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")"
     ],
     "deny": [],
     "ask": []

@@ -22,10 +22,7 @@
     try {
       chrome.storage.local.get(keys, callback);
     } catch (e) {
-      // 오류 발생 시에만 로그 출력
-      if (isExtensionValid()) {
-        console.error('[EnterJoy] Storage get failed:', e);
-      }
+      // 오류 무시 (확장프로그램 재로드 시 정상 동작)
     }
   }
 
@@ -37,10 +34,7 @@
     try {
       chrome.storage.local.set(items, callback);
     } catch (e) {
-      // 오류 발생 시에만 로그 출력
-      if (isExtensionValid()) {
-        console.error('[EnterJoy] Storage set failed:', e);
-      }
+      // 오류 무시 (확장프로그램 재로드 시 정상 동작)
     }
   }
 
@@ -52,10 +46,7 @@
     try {
       chrome.storage.local.remove(keys, callback);
     } catch (e) {
-      // 오류 발생 시에만 로그 출력
-      if (isExtensionValid()) {
-        console.error('[EnterJoy] Storage remove failed:', e);
-      }
+      // 오류 무시 (확장프로그램 재로드 시 정상 동작)
     }
   }
 
@@ -69,7 +60,7 @@
   // 포인트 수집 타이머 관리
   let pointTimerInterval = null;
   let pointTimerElement = null;
-  const POINT_INTERVAL = 30; // 고정값: 30분 간격
+  const POINT_INTERVAL = 30; // 30분 간격
 
   // 타이머 개별 활성화 상태
   let timerEnabled = {
@@ -135,14 +126,6 @@
     const theme = result.theme || 'color'; // 기본값: color
     const timerMode = result.timerMode || 'normal'; // 기본값: normal
 
-    console.log('[EnterJoy Init] 🚀 확장프로그램 초기화');
-    console.log('[EnterJoy Init] 댓글 타이머:', timerEnabled.comment);
-    console.log('[EnterJoy Init] 성좌 타이머:', timerEnabled.point);
-    console.log('[EnterJoy Init] 무료포 타이머:', timerEnabled.attendance);
-    console.log('[EnterJoy Init] 성좌 출현시간:', POINT_INTERVAL, '분 (고정)');
-    console.log('[EnterJoy Init] 테마:', theme);
-    console.log('[EnterJoy Init] 모드:', timerMode);
-
     // 테마 적용
     applyTheme(theme);
 
@@ -156,8 +139,6 @@
     // 하나라도 활성화되어 있으면 초기화
     if (timerEnabled.comment || timerEnabled.point || timerEnabled.attendance) {
       initializeExtension(timerMode);
-    } else {
-      console.log('[EnterJoy Init] ⚠️ 모든 타이머가 비활성화되어 있습니다.');
     }
   });
 
@@ -216,7 +197,7 @@
       try {
         extractTimeFromPopup(message);
       } catch (e) {
-        console.error('Error extracting time:', e);
+        // 오류 무시
       }
       return originalAlert.call(window, message);
     };
@@ -227,7 +208,7 @@
       try {
         extractTimeFromPopup(message);
       } catch (e) {
-        console.error('Error extracting time:', e);
+        // 오류 무시
       }
       return originalConfirm.call(window, message);
     };
@@ -247,6 +228,8 @@
     if (timerEnabled.point) {
       createPointTimerUI(isCompact);
       startPointTimer();
+      // background.js에 타이머 시작 요청
+      chrome.runtime.sendMessage({ action: 'startPointTimer' });
     }
 
     // 출석체크 타이머 (활성화된 경우에만)
@@ -258,6 +241,9 @@
 
     // bfcache 복원 감지 (뒤로가기/앞으로가기)
     setupPageShowListener();
+
+    // 타이머 만료 알림 메시지 리스너 등록
+    setupTimerExpiredListener();
   }
 
   function setupPageShowListener() {
@@ -396,7 +382,6 @@
       }
       // 클릭 가능한 상태인지 확인
       if (attendanceTimerElement.classList.contains('enterjoy-attendance-timer-clickable')) {
-        console.log('출석체크 타이머 클릭 - 포인트 페이지로 이동');
         e.preventDefault();
         e.stopPropagation();
         window.location.href = 'https://enterjoy.day/bbs/board.php?bo_table=point';
@@ -530,15 +515,16 @@
     const currentSecond = now.getSeconds();
 
     let targetMinute;
+    let minutesRemaining;
 
-    // 30분 간격 고정: 0, 30
+    // 30분 간격 (매시 0분, 30분)
     if (currentMinute < 30) {
       targetMinute = 30;
     } else {
       targetMinute = 60; // 다음 시간의 0분
     }
+    minutesRemaining = targetMinute - currentMinute;
 
-    const minutesRemaining = targetMinute - currentMinute;
     const secondsRemaining = 60 - currentSecond;
 
     // 총 남은 초 계산
@@ -546,11 +532,6 @@
 
     if (totalSeconds < 0) {
       totalSeconds = 0;
-    }
-
-    // 10초 이하일 때만 디버그 로그 출력
-    if (totalSeconds <= 10) {
-      console.log('[EnterJoy Debug] 현재:', currentMinute + '분', currentSecond + '초', '/ 목표:', targetMinute + '분 / 남은 초:', totalSeconds, '/ minutesRemaining:', minutesRemaining, '/ secondsRemaining:', secondsRemaining);
     }
 
     return totalSeconds;
@@ -571,12 +552,6 @@
     const seconds = remainingSeconds % 60;
     const display = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 
-    // 디버깅: 10초 이하일 때 로그 출력
-    if (remainingSeconds <= 10) {
-      console.log('[EnterJoy Timer] 남은 시간:', remainingSeconds, '초');
-      console.log('[EnterJoy Timer] 현재 간격 설정:', POINT_INTERVAL, '분 (고정)');
-    }
-
     const countdownElement = document.getElementById('enterjoy-point-countdown');
     if (countdownElement) {
       countdownElement.textContent = display;
@@ -584,7 +559,6 @@
 
     // 포인트 수집 시간이 되었을 때
     if (remainingSeconds === 0) {
-      console.log('[EnterJoy Timer] ⏰ 타이머 0초 도달! - showPointReadyNotification 호출');
       showPointReadyNotification();
     }
 
@@ -614,6 +588,92 @@
       banner.classList.remove('enterjoy-banner-show');
       setTimeout(() => banner.remove(), 300);
     }, 5000); // 5초간 표시
+  }
+
+  // ========== 타이머 만료 알림 처리 ==========
+
+  // 타이머 만료 메시지 리스너 설정
+  function setupTimerExpiredListener() {
+    chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+      if (request.action === 'pointTimerExpired') {
+        handlePointTimerExpired();
+        sendResponse({ success: true });
+      }
+      return false;
+    });
+  }
+
+  // 타이머 만료 시 처리
+  function handlePointTimerExpired() {
+    if (document.hidden) {
+      // 비활성 탭 → 제목 깜빡임
+      startTabNotification();
+    } else {
+      // 활성 탭 → 배너 표시
+      showPointReadyNotification();
+      chrome.runtime.sendMessage({ action: 'stopBadgeFlashing' });
+    }
+  }
+
+  // 비활성 탭 시각적 알림
+  let titleFlashInterval = null;
+  let titleFlashTimeout = null;
+  let originalTitle = null;
+
+  function startTabNotification() {
+    // 기존 알림 중지
+    stopTabNotification();
+
+    originalTitle = document.title;
+
+    let toggle = true;
+
+    // 탭 제목 깜빡임 (1.5초 간격)
+    titleFlashInterval = setInterval(() => {
+      document.title = toggle
+        ? '🎁🎁🎁 성좌 출현! 클릭하세요! 🎁🎁🎁'
+        : originalTitle;
+      toggle = !toggle;
+    }, 1500);
+
+    // 탭이 활성화되면 중지
+    const stopOnVisible = () => {
+      if (!document.hidden) {
+        stopTabNotification();
+        document.removeEventListener('visibilitychange', stopOnVisible);
+
+        // 활성화 시 배너 표시
+        showPointReadyNotification();
+
+        // Badge 깜빡임 중지 요청
+        chrome.runtime.sendMessage({ action: 'stopBadgeFlashing' });
+      }
+    };
+    document.addEventListener('visibilitychange', stopOnVisible);
+
+    // 60초 후 자동 중지
+    titleFlashTimeout = setTimeout(() => {
+      stopTabNotification();
+      document.removeEventListener('visibilitychange', stopOnVisible);
+    }, 60000);
+  }
+
+  // 탭 알림 중지
+  function stopTabNotification() {
+    if (titleFlashInterval) {
+      clearInterval(titleFlashInterval);
+      titleFlashInterval = null;
+    }
+
+    if (titleFlashTimeout) {
+      clearTimeout(titleFlashTimeout);
+      titleFlashTimeout = null;
+    }
+
+    if (originalTitle) {
+      document.title = originalTitle;
+      originalTitle = null;
+    }
   }
 
   // 출석체크 타이머 함수들
@@ -926,7 +986,6 @@
           [ATTENDANCE_KEY]: now,
           [ATTENDANCE_TARGET_KEY]: targetTime
         }, function() {
-          console.log('포인트 수령 완료 - 24시간 타이머 초기화');
           if (updateAttendanceTimer) updateAttendanceTimer();
         });
       }
@@ -1343,7 +1402,6 @@
       }
 
       // 새로운 댓글 시간 저장
-      console.log('댓글 작성 감지 - 타이머 시작');
       safeStorageSet({ [STORAGE_KEY]: checkTime }, function() {
         startCooldown(COOLDOWN_TIME);
       });
@@ -1449,6 +1507,8 @@
                 startPointTimer();
               }
             }
+            // background 타이머 시작
+            chrome.runtime.sendMessage({ action: 'startPointTimer' });
           } else {
             // 성좌 타이머 비활성화
             if (pointTimerInterval) {
@@ -1458,6 +1518,8 @@
             if (pointTimerElement) {
               pointTimerElement.style.display = 'none';
             }
+            // background 타이머 중지
+            chrome.runtime.sendMessage({ action: 'stopPointTimer' });
           }
         } else if (timerType === 'attendance') {
           if (enabled) {
