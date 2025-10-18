@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "엔쪼 알리미",
   "version": "0.94",
-  "description": "enterjoy.day 댓글 작성 쿨다운 타이머 - 강화된 성좌 알림",
+  "description": "enterjoy.day 댓글 작성 쿨다운 타이머 - 시스템 알림 지원",
   "author": "EnterJoy",
   "browser_specific_settings": {
     "gecko": {
@@ -28,7 +28,8 @@
   "permissions": [
     "storage",
     "activeTab",
-    "alarms"
+    "alarms",
+    "notifications"
   ],
   "host_permissions": [
     "http://*/*",
